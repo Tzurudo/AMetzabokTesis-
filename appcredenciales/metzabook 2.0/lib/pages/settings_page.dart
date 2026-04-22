@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bluetooth_classic/models/device.dart';
 import '../services/bluetooth_manager.dart';
-import 'wifi_setup_page.dart';
+
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -419,20 +419,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
-              const SizedBox(height: 10),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WifiSetupPage()),
-                ),
-                icon: const Icon(Icons.settings_overscan),
-                label: const Text("Asistente de Configuración WiFi"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueGrey,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-              ),
+
             ]),
           ],
         ),

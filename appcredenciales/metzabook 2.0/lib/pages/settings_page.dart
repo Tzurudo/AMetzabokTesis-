@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bluetooth_classic/models/device.dart';
 import '../services/bluetooth_manager.dart';
 
-
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -419,7 +418,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
-
             ]),
           ],
         ),

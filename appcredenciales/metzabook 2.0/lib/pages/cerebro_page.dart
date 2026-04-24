@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'bluetooth_page.dart';
 import 'wifi_page.dart';
 import 'settings_page.dart';
@@ -17,7 +16,6 @@ class CerebroPage extends StatefulWidget {
 class _CerebroPageState extends State<CerebroPage> {
   bool _canPop = false;
   final BluetoothManager _btManager = BluetoothManager();
-  bool _hasConfiguredWiFi = false;
 
   static const Color premiumGold = Color.fromARGB(255, 41, 122, 243);
   static const Color darkSilver = Color.fromARGB(255, 37, 37, 37);
@@ -27,20 +25,14 @@ class _CerebroPageState extends State<CerebroPage> {
     super.initState();
     _btManager.isConnected.addListener(_updateState);
     _btManager.isGlobalAuto.addListener(_updateState);
-    _btManager.isWiFiMode.addListener(_updateState);
-    _loadConfiguredIP();
+    _btManager.isTelegramMode.addListener(_updateState);
+    _initRemoteConfig();
   }
 
-  Future<void> _loadConfiguredIP() async {
-    final prefs = await SharedPreferences.getInstance();
-    final ip = prefs.getString('metzabok_ip');
+  Future<void> _initRemoteConfig() async {
+    await _btManager.initRemote();
     if (mounted) {
-      setState(() {
-        _hasConfiguredWiFi = ip != null && ip.isNotEmpty;
-        if (_hasConfiguredWiFi) {
-          _btManager.connectWiFi(ip!);
-        }
-      });
+      setState(() {});
     }
   }
 
@@ -48,7 +40,7 @@ class _CerebroPageState extends State<CerebroPage> {
   void dispose() {
     _btManager.isConnected.removeListener(_updateState);
     _btManager.isGlobalAuto.removeListener(_updateState);
-    _btManager.isWiFiMode.removeListener(_updateState);
+    _btManager.isTelegramMode.removeListener(_updateState);
     super.dispose();
   }
 
@@ -64,7 +56,7 @@ class _CerebroPageState extends State<CerebroPage> {
         if (didPop) return;
 
         final bool isAuto = _btManager.isGlobalAuto.value;
-        final bool isWiFi = _btManager.isWiFiMode.value;
+        final bool isTelegram = _btManager.isTelegramMode.value;
 
         final bool? shouldPop = await showDialog<bool>(
           context: context,
@@ -88,7 +80,7 @@ class _CerebroPageState extends State<CerebroPage> {
                           color: isAuto ? Colors.blue : Colors.orange,
                         ),
                       ),
-                      if (isWiFi) ...[
+                      if (isTelegram) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -100,7 +92,7 @@ class _CerebroPageState extends State<CerebroPage> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            "WiFi",
+                            "Telegram",
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.blue[800],
@@ -113,13 +105,13 @@ class _CerebroPageState extends State<CerebroPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "¿Estás seguro de que quieres salir dejando el sistema en modo ${isAuto ? 'AUTOMÁTICO' : 'MANUAL'}${isWiFi ? ' (WiFi)' : ''}?",
+                    "¿Estás seguro de que quieres salir dejando el sistema en modo ${isAuto ? 'AUTOMÁTICO' : 'MANUAL'}${isTelegram ? ' (Telegram)' : ''}?",
                     style: const TextStyle(fontSize: 14),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     isAuto
-                        ? "El calendario seguirá ejecutándose${isWiFi ? ' vía WiFi' : ''}."
+                        ? "El calendario seguirá ejecutándose${isTelegram ? ' vía Telegram' : ''}."
                         : "El calendario NO se ejecutará.",
                     style: TextStyle(
                       fontSize: 12,
@@ -268,7 +260,7 @@ class _CerebroPageState extends State<CerebroPage> {
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            "Importante: Asegúrate de estar conectado a la misma red WiFi que tu Metzabok y tener el Bluetooth encendido.",
+                            "Importante: Configura tu Bot de Telegram en Ajustes para control remoto total.",
                             style: TextStyle(
                               color: Color.fromARGB(255, 60, 60, 60),
                               fontSize: 13,
@@ -281,7 +273,7 @@ class _CerebroPageState extends State<CerebroPage> {
                     ),
                   ),
                   if (_btManager.isConnected.value ||
-                      _btManager.isWiFiMode.value)
+                      _btManager.isTelegramMode.value)
                     Container(
                       margin: const EdgeInsets.only(bottom: 20),
                       padding: const EdgeInsets.all(12),
@@ -312,8 +304,8 @@ class _CerebroPageState extends State<CerebroPage> {
                     ),
                   _buildPremiumButton(
                     context,
-                    "Comunicación WiFi",
-                    Icons.wifi,
+                    "Control Remoto (Telegram)",
+                    Icons.send_rounded,
                     const WifiPage(),
                     premiumGold,
                   ),
@@ -344,31 +336,31 @@ class _CerebroPageState extends State<CerebroPage> {
   }
 
   Color _getPanelColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
       ? const Color(0xFFE8F5E9)
       : const Color(0xFFFFEBEE);
   Color _getBorderColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
       ? Colors.green
       : Colors.red;
   IconData _getStatusIcon() {
     if (_btManager.isConnected.value) return Icons.bluetooth_connected;
-    if (_btManager.isWiFiMode.value) return Icons.wifi;
+    if (_btManager.isTelegramMode.value) return Icons.send_rounded;
     return Icons.bluetooth_disabled;
   }
 
   Color _getStatusColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
       ? Colors.green
       : Colors.red;
   String _getStatusText() {
     if (_btManager.isConnected.value) return "Conectado (Bluetooth)";
-    if (_btManager.isWiFiMode.value) return "Conectado (WiFi)";
+    if (_btManager.isTelegramMode.value) return "Control Remoto (Telegram)";
     return "Desconectado";
   }
 
   Color _getTextColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
       ? Colors.black87
       : Colors.red;
 

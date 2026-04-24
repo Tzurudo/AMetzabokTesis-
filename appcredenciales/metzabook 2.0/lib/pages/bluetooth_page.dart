@@ -37,18 +37,18 @@ class _BluetoothPageState extends State<BluetoothPage> {
     _btManager.isConnected.addListener(_onConnectionChanged);
     _btManager.relayStates.addListener(_onStateChanged);
     _btManager.isGlobalAuto.addListener(_onStateChanged);
-    _btManager.isWiFiMode.addListener(_onWiFiModeChanged);
+    _btManager.isTelegramMode.addListener(_onTelegramModeChanged);
   }
 
-  void _onWiFiModeChanged() {
-    if (_btManager.isWiFiMode.value && mounted) {
+  void _onTelegramModeChanged() {
+    if (_btManager.isTelegramMode.value && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
             children: [
-              Icon(Icons.wifi, color: Colors.white),
+              Icon(Icons.send, color: Colors.white),
               SizedBox(width: 10),
-              Text('Cambiado a modo WiFi'),
+              Text('Control Remoto (Telegram) Activo'),
             ],
           ),
           backgroundColor: Colors.blue,
@@ -313,14 +313,14 @@ class _BluetoothPageState extends State<BluetoothPage> {
   Widget _buildControlPanel() {
     final states = _btManager.relayStates.value;
     final isAuto = _btManager.isGlobalAuto.value;
-    final isWiFi = _btManager.isWiFiMode.value;
+    final isTelegram = _btManager.isTelegramMode.value;
     final isConnected = _btManager.isConnected.value;
 
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          if (!isConnected && isWiFi)
+          if (!isConnected && isTelegram)
             Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(8),
@@ -331,14 +331,14 @@ class _BluetoothPageState extends State<BluetoothPage> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.wifi, color: Colors.blue),
+                  const Icon(Icons.send, color: Colors.blue),
                   const SizedBox(width: 8),
-                  const Text('Conectado vía WiFi'),
+                  const Text('Control Remoto (Telegram)'),
                   const Spacer(),
                   TextButton(
-                    onPressed: () => _btManager.disconnectWiFi(),
+                    onPressed: () => _btManager.disconnectRemote(),
                     child: const Text(
-                      'Desconectar',
+                      'Desactivar',
                       style: TextStyle(color: Colors.red),
                     ),
                   ),
@@ -527,7 +527,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
     _btManager.isConnected.removeListener(_onConnectionChanged);
     _btManager.relayStates.removeListener(_onStateChanged);
     _btManager.isGlobalAuto.removeListener(_onStateChanged);
-    _btManager.isWiFiMode.removeListener(_onWiFiModeChanged);
+    _btManager.isTelegramMode.removeListener(_onTelegramModeChanged);
     _btManager.stopScan();
     super.dispose();
   }

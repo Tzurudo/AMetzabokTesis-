@@ -5,8 +5,8 @@ import 'package:bluetooth_classic/bluetooth_classic.dart';
 import 'package:bluetooth_classic/models/device.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'telegram_service.dart';
 
 class BluetoothManager {
   static final BluetoothManager _instance = BluetoothManager._internal();
@@ -54,12 +54,11 @@ class BluetoothManager {
 
   BluetoothClassic get instance => _bluetooth;
 
-  // --- WiFi WebSocket ---
-  final ValueNotifier<bool> _isWiFiMode = ValueNotifier<bool>(false);
-  ValueNotifier<bool> get isWiFiMode => _isWiFiMode;
+  // --- Telegram Mode ---
+  final ValueNotifier<bool> _isTelegramMode = ValueNotifier<bool>(false);
+  ValueNotifier<bool> get isTelegramMode => _isTelegramMode;
 
-  WebSocketChannel? _wsChannel;
-  StreamSubscription<dynamic>? _wsSubscription;
+  final TelegramService _telegram = TelegramService();
 
   Future<void> initPermissions() async {
     await [
@@ -111,7 +110,7 @@ class BluetoothManager {
       await _subscription?.cancel();
       _subscription = _bluetooth.onDeviceDataReceived().listen(
         (Uint8List data) {
-          final String chunk = ascii.decode(data);
+          final String chunk = utf8.decode(data, allowMalformed: true);
           _rxBuffer += chunk;
           if (_rxBuffer.length > 4096) {
             _rxBuffer = "";
@@ -160,6 +159,14 @@ class BluetoothManager {
       if (isGlobalAuto.value != isAuto) {
         isGlobalAuto.value = isAuto;
       }
+    } else if (line.startsWith('WIFI:')) {
+      // Ignorar por ahora, o usar para un indicador de WiFi
+    } else if (line.startsWith('TG:')) {
+      final ok = line.contains('OK');
+      // Si el ESP32 dice que Telegram está OK, nos aseguramos de que la App lo sepa
+      if (ok && !_isTelegramMode.value) {
+        _isTelegramMode.value = true;
+      }
     }
   }
 
@@ -202,64 +209,28 @@ class BluetoothManager {
   void dispose() {
     unawaited(_dataSubscription?.cancel());
     _dataStreamController.close();
-    unawaited(_wsSubscription?.cancel());
-    _wsChannel?.sink.close();
   }
 
-  // --- WiFi WebSocket Methods ---
+  // --- Remote (Telegram) Methods ---
 
-  Future<void> connectWiFi(String ipAddress) async {
-    try {
-      final wsUri = Uri.parse('ws://$ipAddress:81');
-      debugPrint("BluetoothManager: Conectando WiFi a $wsUri");
-      _wsChannel = WebSocketChannel.connect(wsUri);
-      _isWiFiMode.value = true;
-      unawaited(_wsSubscription?.cancel());
-      _wsSubscription = _wsChannel!.stream.listen(
-        (message) {
-          if (message is String) {
-            _processIncomingLine(message);
-            _dataStreamController.add(message);
-          }
-        },
-        onDone: () => disconnectWiFi(),
-        onError: (e) => disconnectWiFi(),
-      );
-      _sendWiFiCommand("STATUS");
-    } catch (e) {
-      debugPrint("BluetoothManager: Error conectando WiFi - $e");
-      _isWiFiMode.value = false;
-      rethrow;
-    }
+  Future<void> initRemote() async {
+    await _telegram.init();
+    _isTelegramMode.value = _telegram.isConfigured;
   }
 
-  void _sendWiFiCommand(String command) {
-    try {
-      if (_wsChannel != null && _isWiFiMode.value) {
-        _wsChannel!.sink.add("$command\n");
-      }
-    } catch (e) {
-      debugPrint("BluetoothManager: Error enviando WiFi - $e");
-    }
-  }
-
-  void disconnectWiFi() {
-    try {
-      _wsChannel?.sink.close();
-    } catch (e) {
-      debugPrint("BluetoothManager: Error desconectando WiFi: $e");
-    } finally {
-      unawaited(_wsSubscription?.cancel());
-      _wsChannel = null;
-      _isWiFiMode.value = false;
-    }
+  void disconnectRemote() {
+    _isTelegramMode.value = false;
   }
 
   void sendCommand(String command) {
     if (isConnected.value) {
       write(command);
-    } else if (_isWiFiMode.value) {
-      _sendWiFiCommand(command);
+    } else if (_isTelegramMode.value) {
+      // Mapear comandos internos a comandos de Telegram
+      String tgCmd = command.toLowerCase();
+      if (command == "GLOBAL_AUTO") tgCmd = "auto";
+      if (command == "GLOBAL_MANUAL") tgCmd = "manual";
+      _telegram.sendCommand(tgCmd);
     }
   }
 }

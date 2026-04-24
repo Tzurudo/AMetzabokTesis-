@@ -9,45 +9,42 @@
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 #include <time.h>
-#include <sys/time.h>
 
 /* =========================================================
    CONFIGURACIÓN GENERAL
    ========================================================= */
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
-#define OLED_RESET -1
-#define BTN_BT 4
+#define OLED_RESET   -1
+#define BTN_BT        4
+
 const int RELAY_PINS[] = {32, 33, 25, 26};
-const unsigned long WIFI_TIMEOUT = 20000;
 const char* BT_NAME = "Metzabook_ESP32";
+const int MAX_SCHEDS = 5;
 
 /* =========================================================
-   OBJETOS Y VARIABLES GLOBALES
+   OBJETOS
    ========================================================= */
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 RTC_DS3231 rtc;
-Preferences preferences;
 BluetoothSerial SerialBT;
-
-// Telegram
+Preferences preferences;
 WiFiClientSecure clientSecure;
 UniversalTelegramBot *bot = nullptr;
-String telegramToken = "";
-String telegramChatId = "";
+
+/* =========================================================
+   VARIABLES GLOBALES
+   ========================================================= */
 String wifiSSID = "";
-String wifiPassword = "";
+String wifiPass = "";
+String tgToken  = "";
+String tgChatId = "";
 
-// Estado
-bool relayStatus[4] = {false};
-bool autoMode = false;
-bool btActive = true;
-bool telegramConfigured = false;
-enum WiFiStatus { WIFI_DISCONNECTED, WIFI_CONNECTING, WIFI_CONNECTED };
-WiFiStatus wifiState = WIFI_DISCONNECTED;
+bool relayStatus[4]  = {false};
+bool autoMode        = false;
+bool telegramOK      = false;
+bool btActive        = true;
 
-// Horarios
-const int MAX_SCHEDS = 5;
 struct Schedule {
   uint8_t onHour, onMinute, offHour, offMinute, daysMask;
   bool enabled;
@@ -55,279 +52,470 @@ struct Schedule {
 Schedule channelSchedules[4][MAX_SCHEDS];
 bool lastSchedState[4] = {false};
 
-// Control de Botón (Triple Clic)
-int buttonPressCount = 0;
-unsigned long lastButtonPressTime = 0;
-const unsigned long MULTI_CLICK_TIME = 500; // Ventana para clics rápidos
-bool lastBtnState = HIGH;
+unsigned long lastDisplayUpdate = 0;
+unsigned long lastTelegramCheck = 0;
+unsigned long lastScheduleCheck = 0;
 
 /* =========================================================
-   CERTIFICADO TELEGRAM (ISRG Root X1)
+   CERTIFICADO ROOT (Let's Encrypt ISRG X1)
    ========================================================= */
-const char* METZA_CERT_ROOT =  "-----BEGIN CERTIFICATE-----\n"
-  "MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw\n"
-  "TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh\n"
-  "cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4\n"
-  "WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu\n"
-  "ZXQgU2VjdXJpdHkgUmVzZWFyY2ggGvUZ2j/1IHFHPYHtB2DY8PK+rL5xI/9WcVvM\n"
-  "80mX7L3trSXIdQdLb0XNqn+KbbGtKNYHr3kyWqP+1UziA9V9aQ8Z9azH84j0PhYI\n"
-  "XRiLbjjJ+T0R0tQyYhMqbL2kE9vHZ80yP+UyHB+WrX8gDBlc2/4W4B4B0Hq0P94lx\n"
-  "U7KUVeV2OjiPzAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTAD\n"
-  "AQH/MB0GA1UdDgQWBBTfQfCFFzJbV0JT4w9nQyCJ4r3j2DANBgkqhkiG9w0BAQsF\n"
-  "AAOCAgEAeTVlBqW6sqB6DjhggQv5DZ2d2/bnLElT6/JqT7eoLGTYqCkqbNpmYgRA\n"
-  "0kmZB4qXH8KEFPqGpLX1J7vC+VB24yywW4DM4YcdY5F+8FpcI9pLI/bH8+8oXvQl\n"
-  "kr4CO/Q4Y4UmuBqgZk3ZPHFftkLpNMhlOG/H0G2pXVSLJqKGGgUotO3kFrHSl9Kj\n"
-  "9uG1YYAF9oA/9xA/s0wM6CqxXW1lZcxYbWjrqmOYD5kCWdcTgUBUgbp1ndgw9zlY\n"
-  "DGeg67CXcKzD0Dt0ZOGM6Z3hK+YrsI8N6PZ+Jzjkt4PpNrFrErT9HYm/pnmim4ej\n"
-  "QZAdh32XyPcUxqA8dCG5yf4/nTj4cQ/8GndqizRchCLf1R88qDYk/UiHY5BxwAqc\n"
-  "EoJfBptq5A6NWUxVIBpYwEfgHHEh5Vr6aunD5iA0kCVzFzS+K/Wvx0rWwzU5W02C\n"
-  "7OPiqstKsmF/1JKSyp05V9Z9E4Jq8YJhQqT1rB64SYeTnb2T91jLtM3Y2/GOiXHx\n"
-  "+jC00QZNKQqWWr4bKtR5VOTkOUqR6hbyWvZ94ELIqM6UJvQ9lA5uO+09X6vEbPKk\n"
-  "YZUc0ciT56wtlG4s0VQOq55CHqxgEGQyxHzt+gUyHnyO0bVhH6gjwX7IP2F2qoUe\n"
-  "IfFMR9q+u4onFxJphMftl4RpkP/TFmgUCp5M9RrV9D0PnqQb9Aq+AWb1oY3vxr7r\n"
-  "X2ZtZ8B4lwfkEZEpxhH8YOVjfn65MpCnoEX8bMiWvfuzXY8yWEM+XMChSp9ne8lX\n"
-  "4d8pEi9tCnhTYwBFe5NHcrPF1x5Q1Uc=\n"
-  "-----END CERTIFICATE-----\n";
+const char* ROOT_CA = \
+"-----BEGIN CERTIFICATE-----\n"
+"MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw\n"
+"TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh\n"
+"cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4\n"
+"WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu\n"
+"ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY\n"
+"MTAeFw0xNTA2MDQxMTA0MzhaFw0zNTA2MDQxMTA0MzhaME8xCzAJBgNVBAYTAlVT\n"
+"MSkwJwYDVQQKEyBJbnRlcm5ldCBTZWN1cml0eSBSZXNlYXJjaCBHcm91cDEVMBMG\n"
+"A1UEAxMMSVNSRyBSb290IFgxMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKC\n"
+"AgEAiNZcPcT1S1F/8nIuPkBUhZzF3hO4f6ZvKEIDfGwLvW6N9jHGxBf4FyZOPQ1O\n"
+"AgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1Ud\n"
+"DgQWBBTfQfCFFzJbV0JT4w9nQyCJ4r3j2DANBgkqhkiG9w0BAQsFAAOCAgEAeTVl\n"
+"-----END CERTIFICATE-----\n";
 
 /* =========================================================
-   PROTOTIPOS
-   ========================================================= */
-void setupTelegram();
-void sendTelegramMessage(String msg);
-void processBluetoothCommand(String cmd);
-void loadAndConnectWiFi();
-void stopWiFi();
-void startBluetooth();
-void stopBluetooth();
-
-/* =========================================================
-   FUNCIONES DE PERSISTENCIA
+   PERSISTENCIA
    ========================================================= */
 void saveMode() {
-  preferences.begin("modes", false);
+  preferences.begin("cfg", false);
   preferences.putBool("auto", autoMode);
   preferences.end();
 }
 
-void loadCredentials() {
+void saveSchedules() {
+  preferences.begin("scheds", false);
+  preferences.putBytes("data", channelSchedules, sizeof(channelSchedules));
+  preferences.end();
+}
+
+void loadAll() {
   preferences.begin("wifi", true);
   wifiSSID = preferences.getString("ssid", "");
-  wifiPassword = preferences.getString("pass", "");
+  wifiPass = preferences.getString("pass", "");
   preferences.end();
-  preferences.begin("telegram", true);
-  telegramToken = preferences.getString("token", "");
-  telegramChatId = preferences.getString("chatid", "");
+
+  preferences.begin("tg", true);
+  tgToken  = preferences.getString("token", "");
+  tgChatId = preferences.getString("chat",  "");
   preferences.end();
-  preferences.begin("modes", true);
+
+  preferences.begin("cfg", true);
   autoMode = preferences.getBool("auto", false);
   preferences.end();
-}
 
-/* =========================================================
-   CORE 0: TAREA DE TELEGRAM
-   ========================================================= */
-void telegramTask(void * pvParameters) {
-  unsigned long lastCheck = 0;
-  
-  for(;;) {
-    if (telegramConfigured && WiFi.status() == WL_CONNECTED && bot != nullptr) {
-      if (millis() - lastCheck > 3000) { // Revisar cada 3s
-        int numNewMessages = bot->getUpdates(bot->last_message_received + 1);
-        while (numNewMessages) {
-          for (int i = 0; i < numNewMessages; i++) {
-            String text = bot->messages[i].text;
-            String chat_id = bot->messages[i].chat_id;
-            text.toLowerCase();
-            
-            if (chat_id != telegramChatId) {
-              bot->sendMessage(chat_id, "No autorizado", "");
-              continue;
-            }
-            
-            // Control de relés por Telegram
-            for (int ch = 0; ch < 4; ch++) {
-              if (text == "on" + String(ch+1)) {
-                if (!autoMode) {
-                  digitalWrite(RELAY_PINS[ch], HIGH);
-                  relayStatus[ch] = true;
-                  bot->sendMessage(chat_id, "Canal " + String(ch+1) + " ON", "");
-                } else {
-                  bot->sendMessage(chat_id, "Error: Modo AUTO activo", "");
-                }
-              }
-              if (text == "off" + String(ch+1)) {
-                if (!autoMode) {
-                  digitalWrite(RELAY_PINS[ch], LOW);
-                  relayStatus[ch] = false;
-                  bot->sendMessage(chat_id, "Canal " + String(ch+1) + " OFF", "");
-                } else {
-                  bot->sendMessage(chat_id, "Error: Modo AUTO activo", "");
-                }
-              }
-            }
-            
-            if (text == "auto") { autoMode = true; saveMode(); bot->sendMessage(chat_id, "Modo: AUTO", ""); }
-            if (text == "manual") { autoMode = false; saveMode(); bot->sendMessage(chat_id, "Modo: MANUAL", ""); }
-            if (text == "status") {
-              String s = "Estado:\n";
-              for(int i=0; i<4; i++) s += "CH" + String(i+1) + (relayStatus[i]?" ON":" OFF") + "\n";
-              s += "Modo: " + String(autoMode?"AUTO":"MANUAL");
-              bot->sendMessage(chat_id, s, "");
-            }
-          }
-          numNewMessages = bot->getUpdates(bot->last_message_received + 1);
-        }
-        lastCheck = millis();
-      }
-    }
-    vTaskDelay(100 / portTICK_PERIOD_MS); // Pequeño respiro
+  preferences.begin("scheds", true);
+  if (preferences.getBytesLength("data") == sizeof(channelSchedules)) {
+    preferences.getBytes("data", channelSchedules, sizeof(channelSchedules));
+  } else {
+    for (int i = 0; i < 4; i++)
+      for (int j = 0; j < MAX_SCHEDS; j++)
+        channelSchedules[i][j].enabled = false;
   }
+  preferences.end();
 }
 
 /* =========================================================
-   CORE 1: LÓGICA PRINCIPAL (Bluetooth, UI, Botón)
+   WIFI
+   ========================================================= */
+void connectWiFi() {
+  if (wifiSSID == "") return;
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
+  Serial.print("Conectando WiFi");
+  unsigned long t = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t < 15000) {
+    delay(300); Serial.print(".");
+  }
+  Serial.println(WiFi.status() == WL_CONNECTED ? "\nWiFi OK: " + WiFi.localIP().toString() : "\nWiFi FAIL");
+}
+
+/* =========================================================
+   TELEGRAM
    ========================================================= */
 void setupTelegram() {
-  clientSecure.setCACert(METZA_CERT_ROOT);
+  if (tgToken == "") return;
+  clientSecure.setCACert(ROOT_CA);
   if (bot != nullptr) delete bot;
-  bot = new UniversalTelegramBot(telegramToken, clientSecure);
-  telegramConfigured = true;
-  
-  // Sincronizar Hora
-  if (rtc.begin()) {
-    DateTime now = rtc.now();
-    struct tm tm;
-    tm.tm_year = now.year() - 1900; tm.tm_mon = now.month() - 1; tm.tm_mday = now.day();
-    tm.tm_hour = now.hour(); tm.tm_min = now.minute(); tm.tm_sec = now.second();
-    time_t t = mktime(&tm);
-    struct timeval tv = { .tv_sec = t, .tv_usec = 0 };
-    settimeofday(&tv, NULL);
-  }
+  bot = new UniversalTelegramBot(tgToken, clientSecure);
+  telegramOK = true;
+  Serial.println("Telegram listo");
 }
 
-void handleButton() {
-  bool currentState = digitalRead(BTN_BT);
-  unsigned long now = millis();
-  
-  if (currentState == LOW && lastBtnState == HIGH) {
-    if (now - lastButtonPressTime > MULTI_CLICK_TIME) {
-      buttonPressCount = 1;
-    } else {
-      buttonPressCount++;
+void tgSend(String msg) {
+  if (telegramOK && bot && WiFi.status() == WL_CONNECTED && tgChatId != "")
+    bot->sendMessage(tgChatId, msg, "");
+}
+
+void checkTelegram() {
+  if (!telegramOK || !bot || WiFi.status() != WL_CONNECTED) return;
+  if (millis() - lastTelegramCheck < 3000) return;
+  lastTelegramCheck = millis();
+
+  int n = bot->getUpdates(bot->last_message_received + 1);
+  for (int i = 0; i < n; i++) {
+    String text = bot->messages[i].text;
+    String chat = bot->messages[i].chat_id;
+    text.toLowerCase();
+
+    if (chat != tgChatId) { bot->sendMessage(chat, "No autorizado", ""); continue; }
+
+    // Canales ON/OFF
+    bool processed = false;
+    for (int ch = 0; ch < 4; ch++) {
+      if (text == "on" + String(ch + 1)) {
+        if (!autoMode) { digitalWrite(RELAY_PINS[ch], HIGH); relayStatus[ch] = true; bot->sendMessage(chat, "✅ CH" + String(ch + 1) + " ON", ""); }
+        else bot->sendMessage(chat, "❌ Modo AUTO activo", "");
+        processed = true; break;
+      }
+      if (text == "off" + String(ch + 1)) {
+        if (!autoMode) { digitalWrite(RELAY_PINS[ch], LOW); relayStatus[ch] = false; bot->sendMessage(chat, "✅ CH" + String(ch + 1) + " OFF", ""); }
+        else bot->sendMessage(chat, "❌ Modo AUTO activo", "");
+        processed = true; break;
+      }
     }
-    lastButtonPressTime = now;
-    
-    if (buttonPressCount == 3) {
-      buttonPressCount = 0;
-      if (btActive) {
-        stopBluetooth();
-        Serial.println("Bluetooth desactivado por usuario");
-      } else {
-        startBluetooth();
-        Serial.println("Bluetooth activado por usuario");
+
+    if (!processed) {
+      if (text == "auto")   { autoMode = true;  saveMode(); bot->sendMessage(chat, "🔄 AUTO", ""); }
+      else if (text == "manual") { autoMode = false; saveMode(); bot->sendMessage(chat, "🔄 MANUAL", ""); }
+      else if (text == "alloff") {
+        for (int j = 0; j < 4; j++) { digitalWrite(RELAY_PINS[j], LOW); relayStatus[j] = false; }
+        bot->sendMessage(chat, "🔴 Todos OFF", "");
+      }
+      else if (text == "status") {
+        String s = "📊 Metzabook\n";
+        s += autoMode ? "⚙️ AUTO\n" : "⚙️ MANUAL\n";
+        for (int j = 0; j < 4; j++)
+          s += "CH" + String(j + 1) + ": " + (relayStatus[j] ? "ON" : "OFF") + "\n";
+        s += "W: " + String(WiFi.status() == WL_CONNECTED ? "ON" : "NO");
+        bot->sendMessage(chat, s, "");
       }
     }
   }
-  lastBtnState = currentState;
 }
 
-void processBluetoothCommand(String cmd) {
-  cmd.trim();
-  if (cmd == "STATUS") {
-    for(int i=0; i<4; i++) SerialBT.println("CH" + String(i+1) + "=" + String(relayStatus[i]?"ON":"OFF"));
-    SerialBT.println(autoMode ? "MODE:GLOBAL:AUTO" : "MODE:GLOBAL:MANUAL");
-    SerialBT.println("WIFI:" + String(WiFi.status()==WL_CONNECTED?"ON":"OFF"));
-    SerialBT.println("TG:" + String(telegramConfigured?"OK":"NO"));
-    return;
-  }
-  if (cmd == "GLOBAL_AUTO") { autoMode = true; saveMode(); SerialBT.println("MODE:GLOBAL:AUTO"); return; }
-  if (cmd == "GLOBAL_MANUAL") { autoMode = false; saveMode(); SerialBT.println("MODE:GLOBAL:MANUAL"); return; }
-  
-  // Control de canales
-  for (int i=0; i<4; i++) {
-    if (cmd == "ON"+String(i+1)) { if(!autoMode){digitalWrite(RELAY_PINS[i],HIGH); relayStatus[i]=true; SerialBT.println("CH"+String(i+1)+"=ON");} return; }
-    if (cmd == "OFF"+String(i+1)) { if(!autoMode){digitalWrite(RELAY_PINS[i],LOW); relayStatus[i]=false; SerialBT.println("CH"+String(i+1)+"=OFF");} return; }
-  }
-}
+/* =========================================================
+   DISPLAY OLED 128x32
+   Layout (text size 1 = 6x8px, ~21 chars/línea):
 
-void processConfigCommand(String cmd) {
-  if (cmd.startsWith("SET_WIFI:")) {
-    String rest = cmd.substring(9); int sep = rest.indexOf(':');
-    if (sep > 0) {
-      wifiSSID = rest.substring(0, sep); wifiPassword = rest.substring(sep + 1);
-      preferences.begin("wifi", false); preferences.putString("ssid", wifiSSID); preferences.putString("pass", wifiPassword); preferences.end();
-      SerialBT.println("WiFi guardado: " + wifiSSID);
-    }
-  }
-  if (cmd.startsWith("SET_TELEGRAM:")) {
-    String rest = cmd.substring(13); int sep = rest.indexOf(':');
-    if (sep > 0) {
-      telegramToken = rest.substring(0, sep); telegramChatId = rest.substring(sep + 1);
-      preferences.begin("telegram", false); preferences.putString("token", telegramToken); preferences.putString("chatid", telegramChatId); preferences.end();
-      setupTelegram();
-      SerialBT.println("Telegram guardado");
-    }
-  }
-  if (cmd == "CONNECT_WIFI") loadAndConnectWiFi();
-}
-
-void loadAndConnectWiFi() {
-  if (wifiSSID != "") {
-    WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
-    wifiState = WIFI_CONNECTING;
-  }
-}
-
-void stopWiFi() { WiFi.disconnect(true); WiFi.mode(WIFI_OFF); wifiState = WIFI_DISCONNECTED; }
-void startBluetooth() { SerialBT.begin(BT_NAME); SerialBT.setTimeout(50); btActive = true; }
-void stopBluetooth() { SerialBT.end(); btActive = false; }
-
+   Línea 0 (y=0):  [AUTO|MAN]  [RUN|CFG]   HH:MM:SS
+   Línea 1 (y=11): 1:[ON|OF] 2:[ON|OF] 3:[ON|OF] 4:[ON|OF]
+   Línea 2 (y=23): W:[ON|NO] BT:[ON|NO] TG:[OK|--]
+   ========================================================= */
 void updateDisplay() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+
   DateTime now = rtc.now();
-  display.setCursor(0,0); display.print(autoMode?"AUTO":"MAN");
-  display.setCursor(70,0); display.printf("%02d:%02d:%02d", now.hour(), now.minute(), now.second());
-  display.setCursor(0,12); display.print("ST: ");
-  for(int i=0; i<4; i++) display.print(relayStatus[i]?"I ":"O ");
-  display.setCursor(0,24); display.print("W:"); display.print(WiFi.status()==WL_CONNECTED?"ON":"OFF");
-  display.setCursor(35,24); display.print("TG:"); display.print(telegramConfigured?"OK":"NO");
-  display.setCursor(90,24); display.print("BT:"); display.print(btActive?"ON":"OFF");
+  bool wifiOn  = (WiFi.status() == WL_CONNECTED);
+  bool needCfg = (wifiSSID == "" || tgToken == "");
+
+  /* ── Línea 0: Modo | Estado | Hora ── */
+  display.setCursor(0, 0);
+  display.print(autoMode ? "AUTO" : "MAN ");
+
+  display.setCursor(30, 0);
+  display.print(needCfg ? "CFG" : "RUN");
+
+  display.setCursor(66, 0);
+  display.printf("%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+
+  /* ── Línea 1: Estado de los 4 canales ── */
+  // Cada canal: "1:ON " (5 chars) o "1:OF " (5 chars) → 20 chars total
+  display.setCursor(0, 11);
+  for (int i = 0; i < 4; i++) {
+    display.print(String(i + 1));
+    display.print(":");
+    display.print(relayStatus[i] ? "ON" : "OF");
+    if (i < 3) display.print(" ");
+  }
+
+  /* ── Línea 2: Conexiones ── */
+  // "W:ON BT:ON TG:OK" → 17 chars
+  display.setCursor(0, 23);
+  display.print("W:");
+  display.print(wifiOn ? "ON" : "NO");
+
+  display.setCursor(36, 23);
+  display.print("BT:");
+  display.print(btActive ? "ON" : "NO");
+
+  display.setCursor(78, 23);
+  display.print("TG:");
+  display.print(telegramOK ? "OK" : "--");
+
   display.display();
 }
 
+/* =========================================================
+   BLUETOOTH — Comandos
+   ========================================================= */
+void sendStatus() {
+  for (int i = 0; i < 4; i++)
+    SerialBT.println("CH" + String(i + 1) + "=" + (relayStatus[i] ? "ON" : "OFF"));
+  SerialBT.println("MODE:GLOBAL:" + String(autoMode ? "AUTO" : "MANUAL"));
+  SerialBT.println("WIFI:" + String(WiFi.status() == WL_CONNECTED ? "ON" : "OFF"));
+  SerialBT.println("TG:" + String(telegramOK ? "OK" : "NO"));
+  SerialBT.println("BT:ON");
+}
+
+void processCommand(String cmd) {
+  cmd.trim();
+  cmd.toUpperCase();
+  Serial.println("BT< " + cmd);
+
+  /* STATUS */
+  if (cmd == "STATUS") { sendStatus(); return; }
+
+  /* MODO */
+  if (cmd == "GLOBAL_AUTO")   { autoMode = true;  saveMode(); SerialBT.println("MODE:GLOBAL:AUTO");   tgSend("📱 AUTO por BT");   return; }
+  if (cmd == "GLOBAL_MANUAL") { autoMode = false; saveMode(); SerialBT.println("MODE:GLOBAL:MANUAL"); tgSend("📱 MANUAL por BT"); return; }
+
+  /* ALLOFF */
+  if (cmd == "ALLOFF") {
+    for (int i = 0; i < 4; i++) { digitalWrite(RELAY_PINS[i], LOW); relayStatus[i] = false; SerialBT.println("CH" + String(i + 1) + "=OFF"); }
+    tgSend("🔴 EMERGENCIA: Todos OFF"); return;
+  }
+
+  /* SETTIME:HH:MM:SS:DD:MM:YYYY */
+  if (cmd.startsWith("SETTIME:")) {
+    int p[6]; int idx = 0; int start = 8;
+    for (int i = 0; i < 6; i++) {
+      int end = cmd.indexOf(':', start);
+      if (end == -1) end = cmd.length();
+      p[idx++] = cmd.substring(start, end).toInt();
+      start = end + 1;
+    }
+    if (idx == 6) {
+      rtc.adjust(DateTime(p[5], p[4], p[3], p[0], p[1], p[2]));
+      SerialBT.println("TIME_SYNC_OK");
+    }
+    return;
+  }
+
+  /* GETSCHEDS */
+  if (cmd == "GETSCHEDS") {
+    for (int ch = 0; ch < 4; ch++)
+      for (int s = 0; s < MAX_SCHEDS; s++)
+        if (channelSchedules[ch][s].enabled) {
+          SerialBT.printf("LSCHED:%d:%d:%d:%d:%d:%d:%d\n", ch + 1, s,
+            channelSchedules[ch][s].daysMask,
+            channelSchedules[ch][s].onHour,  channelSchedules[ch][s].onMinute,
+            channelSchedules[ch][s].offHour, channelSchedules[ch][s].offMinute);
+          delay(10);
+        }
+    SerialBT.println("SYNC_DONE");
+    return;
+  }
+
+  /* SETSCHED:CH:IDX:MASK:ON_H:ON_M:OFF_H:OFF_M */
+  if (cmd.startsWith("SETSCHED:")) {
+    int p[7]; int idx = 0; int start = 9;
+    for (int i = 0; i < 7; i++) {
+      int end = cmd.indexOf(':', start);
+      if (end == -1) end = cmd.length();
+      p[idx++] = cmd.substring(start, end).toInt();
+      start = end + 1;
+    }
+    if (idx == 7) {
+      int ch = p[0] - 1, s = p[1];
+      if (ch >= 0 && ch < 4 && s >= 0 && s < MAX_SCHEDS) {
+        channelSchedules[ch][s] = { (uint8_t)p[3], (uint8_t)p[4], (uint8_t)p[5], (uint8_t)p[6], (uint8_t)p[2], true };
+        saveSchedules();
+        SerialBT.println("SCHED_SAVED:" + String(ch + 1) + ":" + String(s));
+      }
+    }
+    return;
+  }
+
+  /* DIS_SCHED:CH:IDX */
+  if (cmd.startsWith("DIS_SCHED:")) {
+    int col = cmd.indexOf(':', 10);
+    if (col > 0) {
+      int ch = cmd.substring(10, col).toInt() - 1;
+      int s  = cmd.substring(col + 1).toInt();
+      if (ch >= 0 && ch < 4 && s >= 0 && s < MAX_SCHEDS) {
+        channelSchedules[ch][s].enabled = false;
+        saveSchedules();
+        SerialBT.println("SCHED_DISABLED:" + String(ch + 1) + ":" + String(s));
+      }
+    }
+    return;
+  }
+
+  /* CLEAR_SCHEDS:CH */
+  if (cmd.startsWith("CLEAR_SCHEDS:")) {
+    int ch = cmd.substring(13).toInt() - 1;
+    if (ch >= 0 && ch < 4) {
+      for (int s = 0; s < MAX_SCHEDS; s++) channelSchedules[ch][s].enabled = false;
+      saveSchedules();
+      SerialBT.println("SCHEDS_CLEARED:" + String(ch + 1));
+    }
+    return;
+  }
+
+  /* SET_WIFI:SSID:PASS */
+  if (cmd.startsWith("SET_WIFI:")) {
+    String rest = cmd.substring(9);
+    int sep = rest.indexOf(':');
+    if (sep > 0) {
+      wifiSSID = rest.substring(0, sep);
+      wifiPass = rest.substring(sep + 1);
+      preferences.begin("wifi", false);
+      preferences.putString("ssid", wifiSSID);
+      preferences.putString("pass", wifiPass);
+      preferences.end();
+      SerialBT.println("WiFi guardado: " + wifiSSID);
+      delay(400);
+      SerialBT.println("Conectando a WiFi...");
+      connectWiFi();
+      if (!telegramOK) setupTelegram();
+    }
+    return;
+  }
+
+  /* SET_TELEGRAM:TOKEN:CHATID */
+  if (cmd.startsWith("SET_TELEGRAM:")) {
+    String rest = cmd.substring(13);
+    int sep = rest.indexOf(':');
+    if (sep > 0) {
+      tgToken  = rest.substring(0, sep);
+      tgChatId = rest.substring(sep + 1);
+      preferences.begin("tg", false);
+      preferences.putString("token", tgToken);
+      preferences.putString("chat",  tgChatId);
+      preferences.end();
+      SerialBT.println("Telegram guardado");
+      setupTelegram();
+    }
+    return;
+  }
+
+  /* CONNECT_WIFI */
+  if (cmd == "CONNECT_WIFI") {
+    if (wifiSSID != "") { SerialBT.println("Conectando a WiFi..."); connectWiFi(); if (!telegramOK) setupTelegram(); }
+    else SerialBT.println("ERROR: WiFi no configurado");
+    return;
+  }
+
+  /* ON1-4 / OFF1-4 */
+  for (int i = 0; i < 4; i++) {
+    if (cmd == "ON" + String(i + 1)) {
+      if (!autoMode) { digitalWrite(RELAY_PINS[i], HIGH); relayStatus[i] = true; SerialBT.println("CH" + String(i + 1) + "=ON"); tgSend("📱 CH" + String(i + 1) + " ON"); }
+      else SerialBT.println("ERROR: Modo AUTO activo");
+      return;
+    }
+    if (cmd == "OFF" + String(i + 1)) {
+      if (!autoMode) { digitalWrite(RELAY_PINS[i], LOW); relayStatus[i] = false; SerialBT.println("CH" + String(i + 1) + "=OFF"); tgSend("📱 CH" + String(i + 1) + " OFF"); }
+      else SerialBT.println("ERROR: Modo AUTO activo");
+      return;
+    }
+  }
+
+  SerialBT.println("COMANDO DESCONOCIDO: " + cmd);
+}
+
+void handleBT() {
+  if (!SerialBT.available()) return;
+  String cmd = SerialBT.readStringUntil('\n');
+  processCommand(cmd);
+}
+
+/* =========================================================
+   HORARIOS AUTOMÁTICOS
+   ========================================================= */
+void checkSchedules() {
+  if (!autoMode) return;
+  DateTime now = rtc.now();
+  int curMin = now.hour() * 60 + now.minute();
+  int curDay = now.dayOfTheWeek();
+
+  for (int ch = 0; ch < 4; ch++) {
+    bool shouldOn = false;
+    for (int s = 0; s < MAX_SCHEDS; s++) {
+      Schedule &sch = channelSchedules[ch][s];
+      if (!sch.enabled) continue;
+      if (!(sch.daysMask & (1 << curDay))) continue;
+      int on  = sch.onHour  * 60 + sch.onMinute;
+      int off = sch.offHour * 60 + sch.offMinute;
+      if (on < off) { if (curMin >= on && curMin < off) { shouldOn = true; break; } }
+      else           { if (curMin >= on || curMin < off) { shouldOn = true; break; } }
+    }
+    if (shouldOn != lastSchedState[ch]) {
+      digitalWrite(RELAY_PINS[ch], shouldOn ? HIGH : LOW);
+      relayStatus[ch] = shouldOn;
+      lastSchedState[ch] = shouldOn;
+      String msg = "⏰ CH" + String(ch + 1) + " " + (shouldOn ? "ON" : "OFF");
+      Serial.println(msg);
+      tgSend(msg);
+    }
+  }
+}
+
+/* =========================================================
+   SETUP & LOOP
+   ========================================================= */
 void setup() {
   Serial.begin(115200);
-  Wire.begin(21, 22);
-  for (int i=0; i<4; i++) { pinMode(RELAY_PINS[i], OUTPUT); digitalWrite(RELAY_PINS[i], LOW); }
-  pinMode(BTN_BT, INPUT_PULLUP);
-  
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) Serial.println("OLED error");
-  if(!rtc.begin()) Serial.println("RTC error");
-  
-  loadCredentials();
-  if (wifiSSID != "") loadAndConnectWiFi(); // Conectar WiFi siempre al inicio
-  if (telegramToken != "") setupTelegram();
-  startBluetooth();
+  Serial.println("\n=== METZABOOK ESP32 ===");
 
-  // LANZAR TAREA EN CORE 0
-  xTaskCreatePinnedToCore(telegramTask, "TelegramTask", 10000, NULL, 1, NULL, 0);
+  Wire.begin(21, 22);
+
+  // OLED
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("OLED FAIL");
+  } else {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+    display.println("Metzabook v2.0");
+    display.setCursor(0, 12);
+    display.println("Iniciando...");
+    display.display();
+  }
+
+  // RTC
+  if (!rtc.begin()) Serial.println("RTC FAIL");
+
+  // Relés
+  for (int i = 0; i < 4; i++) {
+    pinMode(RELAY_PINS[i], OUTPUT);
+    digitalWrite(RELAY_PINS[i], LOW);
+    lastSchedState[i] = false;
+  }
+
+  // Botón BT
+  pinMode(BTN_BT, INPUT_PULLUP);
+
+  // Bluetooth
+  SerialBT.begin(BT_NAME);
+  SerialBT.setTimeout(50);
+  Serial.println("BT: " + String(BT_NAME));
+
+  // Cargar configuración y conectar
+  loadAll();
+
+  if (wifiSSID != "") connectWiFi();
+  if (tgToken  != "") setupTelegram();
 }
 
 void loop() {
-  handleButton();
-  if (WiFi.status() == WL_CONNECTED && wifiState == WIFI_CONNECTING) wifiState = WIFI_CONNECTED;
-  
-  static unsigned long lastDisplay = 0;
-  if (millis() - lastDisplay >= 500) { updateDisplay(); lastDisplay = millis(); }
-  
-  if (btActive && SerialBT.available()) {
-    String btCmd = SerialBT.readStringUntil('\n');
-    if (btCmd.startsWith("SET_") || btCmd.startsWith("CONNECT_")) processConfigCommand(btCmd);
-    else processBluetoothCommand(btCmd);
+  handleBT();
+  checkTelegram();
+
+  // Display cada 500ms
+  if (millis() - lastDisplayUpdate >= 500) {
+    updateDisplay();
+    lastDisplayUpdate = millis();
   }
-  
-  // Aquí puedes añadir el checkSchedules() si quieres automatización
-  vTaskDelay(10 / portTICK_PERIOD_MS);
+
+  // Horarios cada 60s
+  if (millis() - lastScheduleCheck >= 60000) {
+    checkSchedules();
+    lastScheduleCheck = millis();
+  }
+
+  delay(10);
 }

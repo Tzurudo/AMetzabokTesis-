@@ -12,5 +12,4 @@ linter:
     - prefer_final_locals
     - sort_child_properties_last
     - unawaited_futures
-    - unsafe_html
     - use_key_in_widget_constructors

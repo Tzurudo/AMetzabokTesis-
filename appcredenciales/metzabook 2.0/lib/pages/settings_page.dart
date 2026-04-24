@@ -77,12 +77,25 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _processLine(String line) {
     if (line.isEmpty || !mounted) return;
-    debugPrint('Procesando línea BT: $line');
+    debugPrint('BT Cfg ← $line');
 
-    if (line.contains('WIFI SET')) {
+    void snack(String msg, {Color color = Colors.green}) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('WiFi configurado correctamente')),
+        SnackBar(content: Text(msg), backgroundColor: color, duration: const Duration(seconds: 3)),
       );
+    }
+
+    if (line.contains('WiFi guardado')) {
+      snack('✅ WiFi guardado en el Metzabook');
+      // Ahora pedimos que se conecte
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (_btManager.isConnected.value) _btManager.write('CONNECT_WIFI');
+      });
+    } else if (line.contains('Telegram guardado')) {
+      snack('✅ Telegram configurado en el Metzabook');
+    } else if (line.contains('Conectando a WiFi')) {
+      snack('🔄 Conectando a WiFi...');
     }
   }
 
@@ -138,12 +151,26 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveTelegramApp() async {
+    final token = _telegramTokenController.text.trim();
+    final chatId = _telegramChatIdController.text.trim();
+    if (token.isEmpty || chatId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa Token y Chat ID')),
+      );
+      return;
+    }
+    // Guarda en SharedPreferences y actualiza TelegramService en memoria
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('telegram_token', _telegramTokenController.text.trim());
-    await prefs.setString('telegram_chat_id', _telegramChatIdController.text.trim());
+    await prefs.setString('telegram_token', token);
+    await prefs.setString('telegram_chat_id', chatId);
+    // Re-inicializar TelegramService para que tome los nuevos valores
+    await _btManager.initRemote();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Credenciales de Telegram guardadas en la App')),
+      const SnackBar(
+        content: Text('✅ Credenciales de Telegram guardadas. Control remoto listo.'),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 
@@ -158,7 +185,10 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     _btManager.write('SET_TELEGRAM:$token:$chatId');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Enviando configuración de Telegram al Metzabook...')),
+      const SnackBar(
+        content: Text('📡 Enviando configuración de Telegram al Metzabook...'),
+        backgroundColor: Colors.blue,
+      ),
     );
   }
 

@@ -61,9 +61,19 @@ class _AutomationPageState extends State<AutomationPage> {
     _loadLabels();
     _btDataSub = _btManager.deviceDataStream.listen(_handleIncomingData);
     _btManager.isGlobalAuto.addListener(_onStateChanged);
+    _btManager.isConnected.addListener(_onConnectionChanged);
     _btManager.channelNames.addListener(_onNamesChanged);
 
     if (_btManager.isConnected.value) {
+      _syncFromDevice();
+    }
+  }
+
+  void _onConnectionChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (_btManager.isConnected.value) {
+      // Recién conectado: sincronizar horarios
       _syncFromDevice();
     }
   }
@@ -151,9 +161,15 @@ class _AutomationPageState extends State<AutomationPage> {
 
   void _sendBTCommand(String command) {
     if (!_btManager.isConnected.value) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Bluetooth no conectado')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Conecta por Bluetooth para gestionar horarios'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
     _btManager.write(command);
@@ -319,8 +335,8 @@ class _AutomationPageState extends State<AutomationPage> {
   void dispose() {
     unawaited(_btDataSub?.cancel());
     _btManager.isGlobalAuto.removeListener(_onStateChanged);
+    _btManager.isConnected.removeListener(_onConnectionChanged);
     _btManager.channelNames.removeListener(_onNamesChanged);
-
     super.dispose();
   }
 

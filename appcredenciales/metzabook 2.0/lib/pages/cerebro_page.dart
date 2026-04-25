@@ -5,6 +5,7 @@ import 'settings_page.dart';
 import 'about_page.dart';
 import 'automation_page.dart';
 import '../services/bluetooth_manager.dart';
+import '../services/wifi_manager.dart';
 
 class CerebroPage extends StatefulWidget {
   const CerebroPage({super.key});
@@ -16,6 +17,7 @@ class CerebroPage extends StatefulWidget {
 class _CerebroPageState extends State<CerebroPage> {
   bool _canPop = false;
   final BluetoothManager _btManager = BluetoothManager();
+  final WifiManager _wifiManager = WifiManager();
 
   static const Color premiumGold = Color.fromARGB(255, 41, 122, 243);
   static const Color darkSilver = Color.fromARGB(255, 37, 37, 37);
@@ -25,22 +27,21 @@ class _CerebroPageState extends State<CerebroPage> {
     super.initState();
     _btManager.isConnected.addListener(_updateState);
     _btManager.isGlobalAuto.addListener(_updateState);
-    _btManager.isTelegramMode.addListener(_updateState);
-    _initRemoteConfig();
+    _wifiManager.isWifiAvailable.addListener(_updateState);
+    _initConnectionCheck();
   }
 
-  Future<void> _initRemoteConfig() async {
+  Future<void> _initConnectionCheck() async {
     await _btManager.initRemote();
-    if (mounted) {
-      setState(() {});
-    }
+    await _wifiManager.checkConnection();
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _btManager.isConnected.removeListener(_updateState);
     _btManager.isGlobalAuto.removeListener(_updateState);
-    _btManager.isTelegramMode.removeListener(_updateState);
+    _wifiManager.isWifiAvailable.removeListener(_updateState);
     super.dispose();
   }
 
@@ -55,16 +56,13 @@ class _CerebroPageState extends State<CerebroPage> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
-        final bool isAuto = _btManager.isGlobalAuto.value;
-        final bool isTelegram = _btManager.isTelegramMode.value;
+        final bool isAuto = _btManager.isGlobalAuto.value || _wifiManager.isAutoMode.value;
 
         final bool? shouldPop = await showDialog<bool>(
           context: context,
           builder: (context) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               title: const Text("¿Salir del Menú?"),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -80,44 +78,12 @@ class _CerebroPageState extends State<CerebroPage> {
                           color: isAuto ? Colors.blue : Colors.orange,
                         ),
                       ),
-                      if (isTelegram) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[100],
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            "Telegram",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.blue[800],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "¿Estás seguro de que quieres salir dejando el sistema en modo ${isAuto ? 'AUTOMÁTICO' : 'MANUAL'}${isTelegram ? ' (Telegram)' : ''}?",
+                    "¿Estás seguro de que quieres salir dejando el sistema en modo ${isAuto ? 'AUTOMÁTICO' : 'MANUAL'}?",
                     style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isAuto
-                        ? "El calendario seguirá ejecutándose${isTelegram ? ' vía Telegram' : ''}."
-                        : "El calendario NO se ejecutará.",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      fontStyle: FontStyle.italic,
-                    ),
                   ),
                 ],
               ),
@@ -128,10 +94,7 @@ class _CerebroPageState extends State<CerebroPage> {
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text(
-                    "Salir",
-                    style: TextStyle(color: Colors.red),
-                  ),
+                  child: const Text("Salir", style: TextStyle(color: Colors.red)),
                 ),
               ],
             );
@@ -147,10 +110,7 @@ class _CerebroPageState extends State<CerebroPage> {
         appBar: AppBar(
           title: const Text(
             "Metzabok",
-            style: TextStyle(
-              color: Color(0xFFD4AF37),
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold),
           ),
           backgroundColor: Colors.white,
           elevation: 0,
@@ -178,41 +138,23 @@ class _CerebroPageState extends State<CerebroPage> {
                 ),
                 child: Text(
                   'Menú',
-                  style: TextStyle(
-                    color: premiumGold,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: premiumGold, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
               ),
               ListTile(
                 leading: const Icon(Icons.settings, color: darkSilver),
-                title: const Text(
-                  'Configuración',
-                  style: TextStyle(color: darkSilver),
-                ),
+                title: const Text('Configuración', style: TextStyle(color: darkSilver)),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SettingsPage(),
-                    ),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.info, color: darkSilver),
-                title: const Text(
-                  'Acerca de',
-                  style: TextStyle(color: darkSilver),
-                ),
+                title: const Text('Acerca de', style: TextStyle(color: darkSilver)),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AboutPage()),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AboutPage()));
                 },
               ),
             ],
@@ -238,10 +180,7 @@ class _CerebroPageState extends State<CerebroPage> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFF8E1),
                       borderRadius: BorderRadius.circular(15),
-                      border: Border.all(
-                        color: const Color(0xFFD4AF37),
-                        width: 1,
-                      ),
+                      border: Border.all(color: const Color(0xFFD4AF37), width: 1),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
@@ -252,15 +191,11 @@ class _CerebroPageState extends State<CerebroPage> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Color(0xFFD4AF37),
-                          size: 28,
-                        ),
+                        Icon(Icons.wifi_rounded, color: Color(0xFFD4AF37), size: 28),
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            "Importante: Configura tu Bot de Telegram en Ajustes para control remoto total.",
+                            "Conexión Local: Controla Metzabok vía WiFi usando metzabok.local cuando estés en casa.",
                             style: TextStyle(
                               color: Color.fromARGB(255, 60, 60, 60),
                               fontSize: 13,
@@ -272,8 +207,7 @@ class _CerebroPageState extends State<CerebroPage> {
                       ],
                     ),
                   ),
-                  if (_btManager.isConnected.value ||
-                      _btManager.isTelegramMode.value)
+                  if (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
                     Container(
                       margin: const EdgeInsets.only(bottom: 20),
                       padding: const EdgeInsets.all(12),
@@ -285,11 +219,7 @@ class _CerebroPageState extends State<CerebroPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            _getStatusIcon(),
-                            color: _getStatusColor(),
-                            size: 24,
-                          ),
+                          Icon(_getStatusIcon(), color: _getStatusColor(), size: 24),
                           const SizedBox(width: 12),
                           Text(
                             _getStatusText(),
@@ -304,15 +234,15 @@ class _CerebroPageState extends State<CerebroPage> {
                     ),
                   _buildPremiumButton(
                     context,
-                    "Control Remoto (Telegram)",
-                    Icons.send_rounded,
+                    "Control por WiFi (Local)",
+                    Icons.wifi_rounded,
                     const WifiPage(),
                     premiumGold,
                   ),
                   const SizedBox(height: 12),
                   _buildPremiumButton(
                     context,
-                    "Vincular con Metzabok",
+                    "Vincular Bluetooth",
                     Icons.bluetooth,
                     const BluetoothPage(),
                     premiumGold,
@@ -320,12 +250,17 @@ class _CerebroPageState extends State<CerebroPage> {
                   const SizedBox(height: 12),
                   _buildPremiumButton(
                     context,
-                    "Modo Automático",
+                    "Programar Horarios",
                     Icons.auto_mode,
                     const AutomationPage(),
                     const Color(0xFFD4AF37),
                   ),
                   const SizedBox(height: 12),
+                  IconButton(
+                    onPressed: _initConnectionCheck,
+                    icon: const Icon(Icons.refresh),
+                    tooltip: "Refrescar conexión",
+                  ),
                 ],
               ),
             ),
@@ -335,42 +270,35 @@ class _CerebroPageState extends State<CerebroPage> {
     );
   }
 
-  Color _getPanelColor() =>
-      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
+  Color _getPanelColor() => (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? const Color(0xFFE8F5E9)
       : const Color(0xFFFFEBEE);
-  Color _getBorderColor() =>
-      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
+
+  Color _getBorderColor() => (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? Colors.green
       : Colors.red;
+
   IconData _getStatusIcon() {
     if (_btManager.isConnected.value) return Icons.bluetooth_connected;
-    if (_btManager.isTelegramMode.value) return Icons.send_rounded;
-    return Icons.bluetooth_disabled;
+    if (_wifiManager.isWifiAvailable.value) return Icons.wifi_rounded;
+    return Icons.cloud_off;
   }
 
-  Color _getStatusColor() =>
-      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
+  Color _getStatusColor() => (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? Colors.green
       : Colors.red;
+
   String _getStatusText() {
     if (_btManager.isConnected.value) return "Conectado (Bluetooth)";
-    if (_btManager.isTelegramMode.value) return "Control Remoto (Telegram)";
-    return "Desconectado";
+    if (_wifiManager.isWifiAvailable.value) return "Conectado (WiFi Local)";
+    return "Sin conexión";
   }
 
-  Color _getTextColor() =>
-      (_btManager.isConnected.value || _btManager.isTelegramMode.value)
+  Color _getTextColor() => (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? Colors.black87
       : Colors.red;
 
-  Widget _buildPremiumButton(
-    BuildContext context,
-    String texto,
-    IconData icono,
-    Widget destino,
-    Color color,
-  ) {
+  Widget _buildPremiumButton(BuildContext context, String texto, IconData icono, Widget destino, Color color) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -389,10 +317,7 @@ class _CerebroPageState extends State<CerebroPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(15),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => destino),
-          ),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => destino)),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             child: Row(
@@ -402,18 +327,10 @@ class _CerebroPageState extends State<CerebroPage> {
                 Expanded(
                   child: Text(
                     texto,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
                   ),
                 ),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey,
-                  size: 14,
-                ),
+                const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 14),
               ],
             ),
           ),
@@ -422,3 +339,4 @@ class _CerebroPageState extends State<CerebroPage> {
     );
   }
 }
+

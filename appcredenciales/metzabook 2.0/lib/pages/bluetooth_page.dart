@@ -31,7 +31,6 @@ class _BluetoothPageState extends State<BluetoothPage> {
     _btManager.isConnected.addListener(_onConnectionChanged);
     _btManager.relayStates.addListener(_rebuild);
     _btManager.isGlobalAuto.addListener(_rebuild);
-    _btManager.isTelegramConfigured.addListener(_rebuild);
     _btManager.channelNames.addListener(_onNamesChanged);
     _initBluetooth();
   }
@@ -48,7 +47,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
       _subscribeToData();
     } else {
       _dataSubscription?.cancel();
-      // NO hacemos pop automático: el usuario puede seguir usando Telegram
+      // Mantener la página abierta para reconectar
     }
   }
 
@@ -165,14 +164,13 @@ class _BluetoothPageState extends State<BluetoothPage> {
     }
   }
 
-  /// Envía un comando por BT (si está conectado) o Telegram (si no).
+  /// Envía un comando por BT si está conectado.
   void _sendCommand(String command) {
-    final mode = _btManager.activeMode;
-    if (mode == ConnectionMode.none) {
-      _showSnack('Sin conexión. Vincúlate por Bluetooth o configura Telegram.', color: Colors.orange);
+    if (!_btManager.isConnected.value) {
+      _showSnack('Sin conexión Bluetooth. Conecta primero.', color: Colors.orange);
       return;
     }
-    _btManager.sendCommand(command);
+    _btManager.write(command);
   }
 
   void _syncTime() {
@@ -196,8 +194,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
   @override
   Widget build(BuildContext context) {
     final bool connected = _btManager.isConnected.value;
-    final bool hasTelegram = _btManager.isTelegramConfigured.value;
-    final bool hasAnyChannel = connected || hasTelegram;
+    final bool hasAnyChannel = connected;
 
     return PopScope(
       canPop: true,
@@ -231,10 +228,10 @@ class _BluetoothPageState extends State<BluetoothPage> {
         ),
         body: Column(
           children: [
-            _buildConnectionBanner(connected, hasTelegram),
+            _buildConnectionBanner(connected),
             Expanded(
               child: hasAnyChannel
-                  ? _buildControlPanel(connected, hasTelegram)
+                  ? _buildControlPanel(connected)
                   : _buildDeviceList(),
             ),
           ],
@@ -243,7 +240,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
     );
   }
 
-  Widget _buildConnectionBanner(bool connected, bool hasTelegram) {
+  Widget _buildConnectionBanner(bool connected) {
     final Color bg;
     final String text;
     final IconData icon;
@@ -252,10 +249,6 @@ class _BluetoothPageState extends State<BluetoothPage> {
       bg = Colors.green;
       text = "● Bluetooth Conectado";
       icon = Icons.bluetooth_connected;
-    } else if (hasTelegram) {
-      bg = Colors.blue;
-      text = "● Control Remoto Activo (Telegram)";
-      icon = Icons.send_rounded;
     } else {
       bg = Colors.red;
       text = "Sin conexión";
@@ -270,11 +263,6 @@ class _BluetoothPageState extends State<BluetoothPage> {
           Icon(icon, color: Colors.white, size: 18),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-          if (!connected && hasTelegram)
-            TextButton(
-              onPressed: () => _startScan(),
-              child: const Text("Conectar BT", style: TextStyle(color: Colors.white, decoration: TextDecoration.underline)),
-            ),
         ],
       ),
     );
@@ -324,7 +312,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
     );
   }
 
-  Widget _buildControlPanel(bool connected, bool hasTelegram) {
+  Widget _buildControlPanel(bool connected) {
     final states = _btManager.relayStates.value;
     final isAuto = _btManager.isGlobalAuto.value;
 
@@ -332,30 +320,6 @@ class _BluetoothPageState extends State<BluetoothPage> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Banner informativo cuando se usa Telegram (sin BT)
-          if (!connected && hasTelegram)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blue[200]!),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Enviando comandos vía Telegram. Conecta por Bluetooth para control directo y sincronización de hora.",
-                      style: TextStyle(fontSize: 12, color: Colors.blue),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
           // Tarjeta de Modo Global
           Card(
             margin: const EdgeInsets.only(bottom: 12),
@@ -500,7 +464,6 @@ class _BluetoothPageState extends State<BluetoothPage> {
     _btManager.isConnected.removeListener(_onConnectionChanged);
     _btManager.relayStates.removeListener(_rebuild);
     _btManager.isGlobalAuto.removeListener(_rebuild);
-    _btManager.isTelegramConfigured.removeListener(_rebuild);
     _btManager.channelNames.removeListener(_onNamesChanged);
     _btManager.stopScan();
     super.dispose();

@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/foco_switch.dart';
 import '../services/bluetooth_manager.dart';
-import '../services/telegram_service.dart';
-import 'settings_page.dart';
+import '../services/wifi_manager.dart';
 
 class WifiPage extends StatefulWidget {
   const WifiPage({super.key});
@@ -14,32 +13,56 @@ class WifiPage extends StatefulWidget {
 }
 
 class _WifiPageState extends State<WifiPage> {
-  final TelegramService _telegram = TelegramService();
+  final WifiManager _wifiManager = WifiManager();
   final BluetoothManager _btManager = BluetoothManager();
 
-  bool _estaConfigurado = false;
-  bool _enviando = false;
+  bool _estaConectado = false;
+  bool _cargando = false;
+  Timer? _refreshTimer;
 
-  List<String> _labels = ['Interruptor 1', 'Interruptor 2', 'Interruptor 3', 'Interruptor 4'];
+  List<String> _labels = [
+    'Interruptor 1',
+    'Interruptor 2',
+    'Interruptor 3',
+    'Interruptor 4',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadInitialState();
-    _btManager.isGlobalAuto.addListener(_rebuild);
+    _initData();
     _btManager.channelNames.addListener(_onNamesChanged);
+    _wifiManager.relayStates.addListener(_rebuild);
+    _wifiManager.isAutoMode.addListener(_rebuild);
+
+    // Refresh status every 5 seconds if available
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) _wifiManager.checkConnection();
+    });
   }
 
-  void _rebuild() { if (mounted) setState(() {}); }
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
   void _onNamesChanged() {
-    if (mounted) setState(() => _labels = List.from(_btManager.channelNames.value));
+    if (mounted)
+      setState(() => _labels = List.from(_btManager.channelNames.value));
   }
 
-  Future<void> _loadInitialState() async {
-    await _telegram.init();
+  Future<void> _initData() async {
     await _loadLabels();
+    _checkConnection();
+  }
+
+  Future<void> _checkConnection() async {
+    setState(() => _cargando = true);
+    final ok = await _wifiManager.checkConnection();
     if (mounted) {
-      setState(() => _estaConfigurado = _telegram.isConfigured);
+      setState(() {
+        _estaConectado = ok;
+        _cargando = false;
+      });
     }
   }
 
@@ -56,22 +79,34 @@ class _WifiPageState extends State<WifiPage> {
     });
   }
 
-  Future<void> _enviarComando(String cmd) async {
-    if (!_estaConfigurado) {
-      _showSnack("Telegram no está configurado en la App", color: Colors.red);
-      return;
-    }
-    if (_enviando) return;
-    setState(() => _enviando = true);
-
-    final exito = await _telegram.sendCommand(cmd);
-
+  Future<void> _setRelay(int i, bool v) async {
+    setState(() => _cargando = true);
+    final ok = await _wifiManager.setRelay(i, v);
     if (mounted) {
-      setState(() => _enviando = false);
-      if (!exito) {
-        _showSnack("❌ Error al enviar comando vía Telegram", color: Colors.red);
+      setState(() => _cargando = false);
+      if (!ok)
+        _showSnack("Error de conexión con metzabok.local", color: Colors.red);
+    }
+  }
+
+  Future<void> _setMode(bool v) async {
+    setState(() => _cargando = true);
+    final ok = await _wifiManager.setMode(v);
+    if (mounted) {
+      setState(() => _cargando = false);
+      if (!ok) _showSnack("Error al cambiar modo", color: Colors.red);
+    }
+  }
+
+  Future<void> _allOff() async {
+    setState(() => _cargando = true);
+    final ok = await _wifiManager.allOff();
+    if (mounted) {
+      setState(() => _cargando = false);
+      if (ok) {
+        _showSnack("Todos los focos apagados", color: Colors.green);
       } else {
-        _showSnack("✅ Comando enviado: $cmd");
+        _showSnack("Error de conexión con metzabok.local", color: Colors.red);
       }
     }
   }
@@ -79,60 +114,64 @@ class _WifiPageState extends State<WifiPage> {
   void _showSnack(String msg, {Color color = Colors.green}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: color,
-      duration: const Duration(seconds: 3),
-    ));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isAuto = _btManager.isGlobalAuto.value;
+    final bool isAuto = _wifiManager.isAutoMode.value;
+    final List<bool> states = _wifiManager.relayStates.value;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _estaConfigurado ? "Metzabok — Telegram" : "Configuración Requerida",
-          style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold),
+        title: const Text(
+          "Control WiFi Local",
+          style: TextStyle(
+            color: Color(0xFFD4AF37),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Icon(
-              _estaConfigurado ? Icons.cloud_done : Icons.cloud_off,
-              color: _estaConfigurado ? Colors.green : Colors.red,
+          IconButton(
+            icon: Icon(
+              Icons.refresh,
+              color: _estaConectado ? Colors.green : Colors.grey,
             ),
+            onPressed: _cargando ? null : _checkConnection,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildStatusBanner(),
-            const SizedBox(height: 20),
+      body: RefreshIndicator(
+        onRefresh: _wifiManager.checkConnection,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              _buildStatusBanner(),
+              const SizedBox(height: 20),
 
-            if (!_estaConfigurado)
-              _buildConfigWarning()
-            else ...[
               // Modo de operación
               Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 color: isAuto ? Colors.blue[50] : Colors.orange[50],
                 child: ListTile(
-                  title: const Text("Modo de Operación", style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(isAuto ? "AUTOMÁTICO" : "MANUAL"),
+                  title: const Text(
+                    "Modo de Operación",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    isAuto ? "AUTOMÁTICO (Calendario)" : "MANUAL (Directo)",
+                  ),
                   trailing: Switch(
                     value: isAuto,
-                    onChanged: _enviando
-                        ? null
-                        : (val) {
-                            _btManager.isGlobalAuto.value = val;
-                            _enviarComando(val ? "auto" : "manual");
-                          },
+                    onChanged: _cargando ? null : (val) => _setMode(val),
                   ),
                 ),
               ),
@@ -142,39 +181,29 @@ class _WifiPageState extends State<WifiPage> {
               for (int i = 0; i < 4; i++)
                 FocoSwitch(
                   titulo: _labels[i],
-                  estado: false, // Telegram es fire-and-forget, no tenemos estado de retorno
-                  enabled: !isAuto && !_enviando,
-                  loading: _enviando,
-                  onChanged: isAuto
-                      ? (_) => _showSnack("Modo AUTOMÁTICO activo.", color: Colors.orange)
-                      : (v) => _enviarComando(v ? "on${i + 1}" : "off${i + 1}"),
+                  estado: states[i],
+                  enabled: !isAuto && !_cargando && _estaConectado,
+                  loading: _cargando,
+                  onChanged: (v) => _setRelay(i, v),
                 ),
+
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                icon: const Icon(Icons.power_settings_new),
+                label: const Text("Apagar todos los focos"),
+                onPressed: (_cargando || !_estaConectado) ? null : _allOff,
+              ),
 
               const SizedBox(height: 20),
 
-              ElevatedButton.icon(
-                icon: _enviando
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.refresh),
-                label: const Text("Solicitar Estado"),
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                onPressed: _enviando ? null : () => _enviarComando("status"),
-              ),
-
-              const SizedBox(height: 12),
-
-              ElevatedButton.icon(
-                icon: const Icon(Icons.flash_off),
-                label: const Text("EMERGENCIA: Apagar Todo"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                onPressed: _enviando ? null : () => _enviarComando("alloff"),
-              ),
+              if (!_estaConectado) _buildHelpCard(),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -184,25 +213,25 @@ class _WifiPageState extends State<WifiPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _estaConfigurado ? Colors.green[50] : Colors.red[50],
+        color: _estaConectado ? Colors.green[50] : Colors.red[50],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _estaConfigurado ? Colors.green : Colors.red),
+        border: Border.all(color: _estaConectado ? Colors.green : Colors.red),
       ),
       child: Row(
         children: [
           Icon(
-            _estaConfigurado ? Icons.check_circle : Icons.error_outline,
-            color: _estaConfigurado ? Colors.green : Colors.red,
+            _estaConectado ? Icons.check_circle : Icons.error_outline,
+            color: _estaConectado ? Colors.green : Colors.red,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _estaConfigurado
-                  ? "Bot de Telegram listo. Los comandos se envían directamente al Metzabook."
-                  : "Configura el Token y Chat ID en Ajustes para usar el control remoto.",
+              _estaConectado
+                  ? "Conectado a metzabok.local. Control directo activo."
+                  : "No se encuentra Metzabook en la red local. Verifica que tu móvil esté en la misma WiFi.",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: _estaConfigurado ? Colors.green[700] : Colors.red[700],
+                color: _estaConectado ? Colors.green[700] : Colors.red[700],
               ),
             ),
           ),
@@ -211,31 +240,25 @@ class _WifiPageState extends State<WifiPage> {
     );
   }
 
-  Widget _buildConfigWarning() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  Widget _buildHelpCard() {
+    return const Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(16),
         child: Column(
           children: [
-            const Icon(Icons.settings_suggest, size: 56, color: Colors.blue),
-            const SizedBox(height: 16),
-            const Text("Falta Configuración", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text(
-              "Para controlar tu Metzabook desde cualquier lugar, necesitas configurar tu Bot de Telegram.",
-              textAlign: TextAlign.center,
+            Icon(Icons.help_outline, size: 48, color: Colors.blue),
+            SizedBox(height: 12),
+            Text(
+              "¿Cómo conectar?",
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.settings),
-              label: const Text("Ir a Configuración"),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsPage()),
-              ).then((_) => _loadInitialState()),
+            SizedBox(height: 8),
+            Text(
+              "1. Asegúrate de que el Metzabook esté en modo WiFi.\n"
+              "2. Tu teléfono debe estar en la misma red WiFi.\n"
+              "3. Si configuraste WiFi hace poco, espera 10 segundos.\n"
+              "4. El dominio es: http://metzabok.local",
+              textAlign: TextAlign.left,
             ),
           ],
         ),
@@ -245,8 +268,10 @@ class _WifiPageState extends State<WifiPage> {
 
   @override
   void dispose() {
-    _btManager.isGlobalAuto.removeListener(_rebuild);
+    _refreshTimer?.cancel();
     _btManager.channelNames.removeListener(_onNamesChanged);
+    _wifiManager.relayStates.removeListener(_rebuild);
+    _wifiManager.isAutoMode.removeListener(_rebuild);
     super.dispose();
   }
 }

@@ -21,11 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   final TextEditingController _ssidController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _ipController = TextEditingController();
   
-  final TextEditingController _telegramTokenController = TextEditingController();
-  final TextEditingController _telegramChatIdController = TextEditingController();
-
   StreamSubscription<Device>? _scanSubscription;
   StreamSubscription<String>? _dataSubscription;
   Timer? _scanTimeoutTimer;
@@ -40,7 +36,6 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _loadLabels();
     _loadWifiCredentials();
-    _loadTelegramCredentials();
     _btManager.isConnected.addListener(_onConnectionChanged);
     _initBluetoothOnce();
   }
@@ -86,16 +81,8 @@ class _SettingsPageState extends State<SettingsPage> {
       );
     }
 
-    if (line.contains('WiFi guardado')) {
+    if (line.contains('WiFi saved')) {
       snack('✅ WiFi guardado en el Metzabook');
-      // Ahora pedimos que se conecte
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (_btManager.isConnected.value) _btManager.write('CONNECT_WIFI');
-      });
-    } else if (line.contains('Telegram guardado')) {
-      snack('✅ Telegram configurado en el Metzabook');
-    } else if (line.contains('Conectando a WiFi')) {
-      snack('🔄 Conectando a WiFi...');
     }
   }
 
@@ -110,22 +97,12 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  Future<void> _loadTelegramCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _telegramTokenController.text = prefs.getString('telegram_token') ?? '';
-      _telegramChatIdController.text = prefs.getString('telegram_chat_id') ?? '';
-    });
-  }
-
   Future<void> _loadWifiCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
       _ssidController.text = prefs.getString('wifi_ssid') ?? '';
       _passwordController.text = prefs.getString('wifi_password') ?? '';
-      _ipController.text = prefs.getString('metzabok_ip') ?? 'metzabok.local';
     });
   }
 
@@ -138,57 +115,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Configuración guardada exitosamente')),
-    );
-  }
-
-  Future<void> _saveIp() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('metzabok_ip', _ipController.text.trim());
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('IP/Host guardado exitosamente')),
-    );
-  }
-
-  Future<void> _saveTelegramApp() async {
-    final token = _telegramTokenController.text.trim();
-    final chatId = _telegramChatIdController.text.trim();
-    if (token.isEmpty || chatId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor ingresa Token y Chat ID')),
-      );
-      return;
-    }
-    // Guarda en SharedPreferences y actualiza TelegramService en memoria
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('telegram_token', token);
-    await prefs.setString('telegram_chat_id', chatId);
-    // Re-inicializar TelegramService para que tome los nuevos valores
-    await _btManager.initRemote();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ Credenciales de Telegram guardadas. Control remoto listo.'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _sendTelegramToESP() {
-    final token = _telegramTokenController.text.trim();
-    final chatId = _telegramChatIdController.text.trim();
-    if (token.isEmpty || chatId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor ingresa Token y Chat ID')),
-      );
-      return;
-    }
-    _btManager.write('SET_TELEGRAM:$token:$chatId');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('📡 Enviando configuración de Telegram al Metzabook...'),
-        backgroundColor: Colors.blue,
-      ),
     );
   }
 
@@ -288,9 +214,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       if (Navigator.canPop(context)) Navigator.pop(context);
       setState(() => isConnecting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error al conectar: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al conectar: $e")));
     }
   }
 
@@ -318,12 +242,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   labelText: 'Contraseña',
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      obscurePassword ? Icons.visibility : Icons.visibility_off,
-                    ),
-                    onPressed: () => setStateDialog(
-                      () => obscurePassword = !obscurePassword,
-                    ),
+                    icon: Icon(obscurePassword ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setStateDialog(() => obscurePassword = !obscurePassword),
                   ),
                 ),
                 obscureText: obscurePassword,
@@ -364,9 +284,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _foco4Controller.dispose();
     _ssidController.dispose();
     _passwordController.dispose();
-    _ipController.dispose();
-    _telegramTokenController.dispose();
-    _telegramChatIdController.dispose();
     super.dispose();
   }
 
@@ -376,10 +293,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text(
-          "Configuración",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text("Configuración", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF333333),
@@ -399,9 +313,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 onPressed: _saveLabels,
                 icon: const Icon(Icons.save),
                 label: const Text("Guardar Nombres"),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
+                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
               ),
             ]),
             const SizedBox(height: 20),
@@ -411,9 +323,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 decoration: BoxDecoration(
                   color: connected ? Colors.green[50] : Colors.red[50],
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: connected ? Colors.green : Colors.red,
-                  ),
+                  border: Border.all(color: connected ? Colors.green : Colors.red),
                 ),
                 child: Center(
                   child: Text(
@@ -430,16 +340,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 ElevatedButton.icon(
                   onPressed: _isScanning ? null : _startScan,
                   icon: _isScanning
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.search),
                   label: Text(_isScanning ? "Buscando..." : "Buscar Metzabok"),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
+                  style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
                 ),
                 const SizedBox(height: 10),
                 if (_devices.isNotEmpty)
@@ -468,46 +372,17 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
             const SizedBox(height: 20),
             _buildSection("Configuración WiFi", Icons.wifi, [
-              _buildTextField(_ipController, "Dirección IP (Opcional)"),
-              ElevatedButton.icon(
-                onPressed: _saveIp,
-                icon: const Icon(Icons.save),
-                label: const Text("Guardar IP"),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
+              const Text(
+                "Configura la red WiFi a la que se conectará el Metzabook. Una vez conectado, podrás usar el control local.",
+                style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 15),
               ElevatedButton.icon(
                 onPressed: connected ? _showWifiDialog : null,
                 icon: const Icon(Icons.send),
-                label: const Text("Pasar WiFi a Metzabook"),
+                label: const Text("Enviar WiFi al Metzabook"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 20),
-            _buildSection("Configuración Telegram", Icons.send_rounded, [
-              _buildTextField(_telegramTokenController, "Bot Token"),
-              _buildTextField(_telegramChatIdController, "Chat ID"),
-              ElevatedButton.icon(
-                onPressed: _saveTelegramApp,
-                icon: const Icon(Icons.save),
-                label: const Text("Guardar en la App"),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton.icon(
-                onPressed: connected ? _sendTelegramToESP : null,
-                icon: const Icon(Icons.bluetooth_audio),
-                label: const Text("Pasar Telegram a Metzabook"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50),
                 ),
@@ -532,13 +407,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 Icon(icon, color: Colors.blue),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
             const Divider(height: 24),
@@ -557,12 +426,10 @@ class _SettingsPageState extends State<SettingsPage> {
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
       ),
     );
   }
 }
+

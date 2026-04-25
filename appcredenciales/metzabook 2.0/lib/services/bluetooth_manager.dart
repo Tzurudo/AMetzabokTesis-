@@ -6,10 +6,6 @@ import 'package:bluetooth_classic/models/device.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'telegram_service.dart';
-
-// Canal de comunicación: Bluetooth directo o Telegram (remoto)
-enum ConnectionMode { none, bluetooth, telegram }
 
 class BluetoothManager {
   static final BluetoothManager _instance = BluetoothManager._internal();
@@ -20,11 +16,9 @@ class BluetoothManager {
   }
 
   late BluetoothClassic _bluetooth;
-  final TelegramService _telegram = TelegramService();
 
   // ── Observables ──────────────────────────────────────────────────────────
   final ValueNotifier<bool> isConnected = ValueNotifier<bool>(false);
-  final ValueNotifier<bool> isTelegramConfigured = ValueNotifier<bool>(false);
   final ValueNotifier<Map<int, bool>> relayStates =
       ValueNotifier<Map<int, bool>>({1: false, 2: false, 3: false, 4: false});
   final ValueNotifier<bool> isGlobalAuto = ValueNotifier<bool>(false);
@@ -36,17 +30,7 @@ class BluetoothManager {
     'Interruptor 4',
   ]);
 
-  // Modo activo: 'bluetooth' cuando conectado por BT, 'telegram' cuando remoto, 'none' si nada
-  ConnectionMode get activeMode {
-    if (isConnected.value) return ConnectionMode.bluetooth;
-    if (isTelegramConfigured.value) return ConnectionMode.telegram;
-    return ConnectionMode.none;
-  }
-
-  // Alias de compatibilidad para código legado
-  ValueNotifier<bool> get isTelegramMode => isTelegramConfigured;
-
-  // ── Stream de datos entrantes (broadcast para múltiples listeners) ────────
+  // ── Stream de datos entrantes ────────────────────────────────────────────
   final StreamController<String> _dataStreamController =
       StreamController<String>.broadcast();
   Stream<String> get deviceDataStream => _dataStreamController.stream;
@@ -55,7 +39,6 @@ class BluetoothManager {
   StreamSubscription<Uint8List>? _subscription;
   String _rxBuffer = '';
 
-  // Cola de comandos (evita saturar el UART del ESP32)
   final Queue<String> _commandQueue = Queue<String>();
   bool _isProcessingQueue = false;
 
@@ -74,8 +57,7 @@ class BluetoothManager {
   }
 
   Future<void> initRemote() async {
-    await _telegram.init();
-    isTelegramConfigured.value = _telegram.isConfigured;
+    // legacy method, no longer needed but kept for CerebroPage compatibility
   }
 
   // ── Nombres de canales ───────────────────────────────────────────────────
@@ -112,7 +94,6 @@ class BluetoothManager {
   Future<void> connect(String address, String name) async {
     try {
       await stopScan();
-      // Pausa crítica para evitar freeze en Android al transicionar de scan→connect
       await Future.delayed(const Duration(milliseconds: 600));
 
       await _bluetooth.connect(address, "00001101-0000-1000-8000-00805f9b34fb");
@@ -130,7 +111,6 @@ class BluetoothManager {
         },
       );
 
-      // Pedir estado inmediatamente al conectar
       await Future.delayed(const Duration(milliseconds: 300));
       _enqueue("STATUS");
     } catch (e) {
@@ -144,10 +124,9 @@ class BluetoothManager {
     final String chunk = utf8.decode(data, allowMalformed: true);
     _rxBuffer += chunk;
 
-    // Protección de overflow
     if (_rxBuffer.length > 8192) {
       _rxBuffer = "";
-      debugPrint("BluetoothManager: RX buffer overflow — limpiado");
+      debugPrint("BluetoothManager: RX buffer overflow");
     }
 
     final List<String> parts = _rxBuffer.split('\n');
@@ -173,25 +152,15 @@ class BluetoothManager {
         final ch = int.tryParse(chMatch.group(1)!);
         if (ch != null && ch >= 1 && ch <= 4) {
           final state = parts[1].trim().toUpperCase() == 'ON';
-          if (relayStates.value[ch] != state) {
-            final updated = Map<int, bool>.from(relayStates.value);
-            updated[ch] = state;
-            relayStates.value = updated;
-          }
+          final updated = Map<int, bool>.from(relayStates.value);
+          updated[ch] = state;
+          relayStates.value = updated;
         }
       }
     } else if (line.startsWith('MODE:GLOBAL:')) {
       final isAuto = line.contains('AUTO');
       if (isGlobalAuto.value != isAuto) isGlobalAuto.value = isAuto;
-    } else if (line.startsWith('TG:')) {
-      // El ESP32 confirma si tiene Telegram configurado
-      final ok = line.contains('OK');
-      if (ok && !isTelegramConfigured.value) {
-        isTelegramConfigured.value = true;
-      }
     }
-    // WIFI:, TIME_SYNC_OK, SCHED_SAVED, etc. se procesan en las páginas
-    // via deviceDataStream listener
   }
 
   Future<void> disconnect() async {
@@ -209,8 +178,7 @@ class BluetoothManager {
     }
   }
 
-  // ── Escritura Bluetooth (con cola) ───────────────────────────────────────
-  /// Escribe un comando directamente por BT (ignora modo Telegram).
+  // ── Escritura Bluetooth ──────────────────────────────────────────────────
   void write(String command) {
     if (!isConnected.value) return;
     _enqueue(command);
@@ -228,7 +196,6 @@ class BluetoothManager {
       final command = _commandQueue.removeFirst();
       try {
         await _bluetooth.write("$command\n");
-        // Pausa entre comandos para no saturar el buffer UART del ESP32
         await Future.delayed(const Duration(milliseconds: 100));
       } catch (e) {
         debugPrint("BluetoothManager: Error escribiendo '$command' - $e");
@@ -238,47 +205,9 @@ class BluetoothManager {
     _isProcessingQueue = false;
   }
 
-  // ── Envío inteligente (BT si conectado, Telegram si no) ─────────────────
-  /// Envía un comando al ESP32 usando el canal disponible.
-  /// BT tiene prioridad sobre Telegram.
-  Future<bool> sendCommand(String command) async {
-    if (isConnected.value) {
-      write(command);
-      return true;
-    } else if (isTelegramConfigured.value) {
-      final tgCmd = _mapToTelegramCommand(command);
-      if (tgCmd == null) {
-        debugPrint("BluetoothManager: '$command' no tiene equivalente Telegram");
-        return false;
-      }
-      return await _telegram.sendCommand(tgCmd);
-    }
-    debugPrint("BluetoothManager: Sin canal disponible para '$command'");
-    return false;
-  }
-
-  /// Mapea comandos internos (mayúsculas) → comandos del bot de Telegram (minúsculas).
-  String? _mapToTelegramCommand(String command) {
-    if (command == "GLOBAL_AUTO") return "auto";
-    if (command == "GLOBAL_MANUAL") return "manual";
-    if (command == "ALLOFF") return "alloff";
-    if (command == "STATUS") return "status";
-    // ON1..ON4 / OFF1..OFF4
-    final match = RegExp(r'^(ON|OFF)(\d)$').firstMatch(command);
-    if (match != null) {
-      return "${match.group(1)!.toLowerCase()}${match.group(2)}";
-    }
-    // Comandos de horarios (SETSCHED, GETSCHEDS…) no tienen equivalente Telegram
-    return null;
-  }
-
-  // ── Telegram ─────────────────────────────────────────────────────────────
-  void disconnectRemote() {
-    isTelegramConfigured.value = false;
-  }
-
   // ── Disposal ─────────────────────────────────────────────────────────────
   void dispose() {
     _dataStreamController.close();
   }
 }
+

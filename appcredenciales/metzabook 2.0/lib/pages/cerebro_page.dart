@@ -5,6 +5,7 @@ import 'wifi_page.dart';
 import 'settings_page.dart';
 import 'about_page.dart';
 import 'automation_page.dart';
+import 'lora_page.dart';
 import '../services/bluetooth_manager.dart';
 
 class CerebroPage extends StatefulWidget {
@@ -331,6 +332,14 @@ class _CerebroPageState extends State<CerebroPage> {
                     "Modo Automático",
                     Icons.auto_mode,
                     const AutomationPage(),
+                    const Color(0xFFD4AF37),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildPremiumButton(
+                    context,
+                    "LoRa — Acceso Remoto",
+                    Icons.settings_input_antenna,
+                    const LoraPage(),
                     const Color(0xFFD4AF37),
                   ),
                   const SizedBox(height: 12),

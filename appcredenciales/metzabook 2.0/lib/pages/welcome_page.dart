@@ -169,9 +169,9 @@ class _WelcomePageState extends State<WelcomePage>
                           borderRadius: BorderRadius.circular(30),
                           gradient: const LinearGradient(
                             colors: [
-                              Color(0xFFD4AF37), // Oro
-                              Color(0xFFF7E6ad), // Oro claro (brillo)
-                              Color(0xFFD4AF37), // Oro
+                              Color(0xFFD4AF37),
+                              Color(0xFFF7E6AD),
+                              Color(0xFFD4AF37),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -192,18 +192,17 @@ class _WelcomePageState extends State<WelcomePage>
                                 pageBuilder:
                                     (context, animation, secondaryAnimation) =>
                                         const CerebroPage(),
-                                transitionsBuilder:
-                                    (
-                                      context,
-                                      animation,
-                                      secondaryAnimation,
-                                      child,
-                                    ) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: child,
-                                      );
-                                    },
+                                transitionsBuilder: (
+                                  context,
+                                  animation,
+                                  secondaryAnimation,
+                                  child,
+                                ) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
                               ),
                             );
                           },
@@ -220,7 +219,7 @@ class _WelcomePageState extends State<WelcomePage>
                             ),
                           ),
                           child: const Text(
-                            "Continuar",
+                            'Continuar',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,

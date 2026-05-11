@@ -1,0 +1,27 @@
+Analyzing metzabook 2.0...                                      
+
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:31:16 • undefined_getter
+  error • The method 'connectWiFi' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:42:22 • undefined_method
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:52:16 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:68:40 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:285:34 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:356:51 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:360:51 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:365:20 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:370:51 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:375:20 • undefined_getter
+  error • The getter 'isWiFiMode' isn't defined for the type 'BluetoothManager' • lib/pages/cerebro_page.dart:380:51 • undefined_getter
+warning • The value of the field 'premiumSilver' isn't used • lib/pages/lora_page.dart:19:22 • unused_field
+warning • The value of the field 'darkSilver' isn't used • lib/pages/lora_page.dart:20:22 • unused_field
+warning • The value of the field 'darkText' isn't used • lib/pages/lora_page.dart:21:22 • unused_field
+warning • The value of the field 'accentBlue' isn't used • lib/pages/lora_page.dart:22:22 • unused_field
+   info • Use 'const' with the constructor to improve performance • lib/pages/lora_page.dart:111:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/pages/lora_page.dart:114:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/pages/lora_page.dart:122:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/pages/lora_page.dart:130:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/pages/lora_page.dart:138:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/pages/lora_page.dart:148:19 • prefer_const_constructors
+   info • Statements in an if should be enclosed in a block • lib/pages/wifi_page.dart:50:7 • curly_braces_in_flow_control_structures
+   info • Missing an 'await' for the 'Future' computed by this expression • lib/pages/wifi_page.dart:55:5 • unawaited_futures
+   info • Statements in an if should be enclosed in a block • lib/pages/wifi_page.dart:88:9 • curly_braces_in_flow_control_structures
+

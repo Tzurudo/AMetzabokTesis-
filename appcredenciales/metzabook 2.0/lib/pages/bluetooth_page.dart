@@ -366,12 +366,11 @@ class _BluetoothPageState extends State<BluetoothPage> {
             ),
           ),
 
-          // Switches de canales
           for (int i = 0; i < 4; i++)
             _buildFocoItem(
               channel: i + 1,
               label: _labels[i],
-              state: states[i + 1] ?? false,
+              state: isAuto ? false : (states[i + 1] ?? false),
               isAuto: isAuto,
               onSwitch: (v) => _sendCommand(v ? 'ON${i + 1}' : 'OFF${i + 1}'),
             ),

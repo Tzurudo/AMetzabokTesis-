@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'bluetooth_page.dart';
 import 'wifi_page.dart';
 import 'settings_page.dart';
@@ -7,6 +6,7 @@ import 'about_page.dart';
 import 'automation_page.dart';
 import 'lora_page.dart';
 import '../services/bluetooth_manager.dart';
+import '../services/wifi_manager.dart';
 
 class CerebroPage extends StatefulWidget {
   const CerebroPage({super.key});
@@ -18,7 +18,7 @@ class CerebroPage extends StatefulWidget {
 class _CerebroPageState extends State<CerebroPage> {
   bool _canPop = false;
   final BluetoothManager _btManager = BluetoothManager();
-  bool _hasConfiguredWiFi = false;
+  final WifiManager _wifiManager = WifiManager();
 
   static const Color premiumGold = Color.fromARGB(255, 41, 122, 243);
   static const Color darkSilver = Color.fromARGB(255, 37, 37, 37);
@@ -28,28 +28,15 @@ class _CerebroPageState extends State<CerebroPage> {
     super.initState();
     _btManager.isConnected.addListener(_updateState);
     _btManager.isGlobalAuto.addListener(_updateState);
-    _btManager.isWiFiMode.addListener(_updateState);
-    _loadConfiguredIP();
-  }
-
-  Future<void> _loadConfiguredIP() async {
-    final prefs = await SharedPreferences.getInstance();
-    final ip = prefs.getString('metzabok_ip');
-    if (mounted) {
-      setState(() {
-        _hasConfiguredWiFi = ip != null && ip.isNotEmpty;
-        if (_hasConfiguredWiFi) {
-          _btManager.connectWiFi(ip!);
-        }
-      });
-    }
+    _wifiManager.isWifiAvailable.addListener(_updateState);
+    _wifiManager.checkConnection();
   }
 
   @override
   void dispose() {
     _btManager.isConnected.removeListener(_updateState);
     _btManager.isGlobalAuto.removeListener(_updateState);
-    _btManager.isWiFiMode.removeListener(_updateState);
+    _wifiManager.isWifiAvailable.removeListener(_updateState);
     super.dispose();
   }
 
@@ -65,7 +52,7 @@ class _CerebroPageState extends State<CerebroPage> {
         if (didPop) return;
 
         final bool isAuto = _btManager.isGlobalAuto.value;
-        final bool isWiFi = _btManager.isWiFiMode.value;
+        final bool isWiFi = _wifiManager.isWifiAvailable.value;
 
         final bool? shouldPop = await showDialog<bool>(
           context: context,
@@ -282,7 +269,7 @@ class _CerebroPageState extends State<CerebroPage> {
                     ),
                   ),
                   if (_btManager.isConnected.value ||
-                      _btManager.isWiFiMode.value)
+                      _wifiManager.isWifiAvailable.value)
                     Container(
                       margin: const EdgeInsets.only(bottom: 20),
                       padding: const EdgeInsets.all(12),
@@ -353,31 +340,31 @@ class _CerebroPageState extends State<CerebroPage> {
   }
 
   Color _getPanelColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? const Color(0xFFE8F5E9)
       : const Color(0xFFFFEBEE);
   Color _getBorderColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? Colors.green
       : Colors.red;
   IconData _getStatusIcon() {
     if (_btManager.isConnected.value) return Icons.bluetooth_connected;
-    if (_btManager.isWiFiMode.value) return Icons.wifi;
+    if (_wifiManager.isWifiAvailable.value) return Icons.wifi;
     return Icons.bluetooth_disabled;
   }
 
   Color _getStatusColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? Colors.green
       : Colors.red;
   String _getStatusText() {
     if (_btManager.isConnected.value) return "Conectado (Bluetooth)";
-    if (_btManager.isWiFiMode.value) return "Conectado (WiFi)";
+    if (_wifiManager.isWifiAvailable.value) return "Conectado (WiFi)";
     return "Desconectado";
   }
 
   Color _getTextColor() =>
-      (_btManager.isConnected.value || _btManager.isWiFiMode.value)
+      (_btManager.isConnected.value || _wifiManager.isWifiAvailable.value)
       ? Colors.black87
       : Colors.red;
 

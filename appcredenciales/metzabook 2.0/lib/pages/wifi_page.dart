@@ -46,13 +46,14 @@ class _WifiPageState extends State<WifiPage> {
   }
 
   void _onNamesChanged() {
-    if (mounted)
+    if (mounted) {
       setState(() => _labels = List.from(_btManager.channelNames.value));
+    }
   }
 
   Future<void> _initData() async {
     await _loadLabels();
-    _checkConnection();
+    await _checkConnection();
   }
 
   Future<void> _checkConnection() async {
@@ -84,8 +85,9 @@ class _WifiPageState extends State<WifiPage> {
     final ok = await _wifiManager.setRelay(i, v);
     if (mounted) {
       setState(() => _cargando = false);
-      if (!ok)
+      if (!ok) {
         _showSnack("Error de conexión con metzabok.local", color: Colors.red);
+      }
     }
   }
 
@@ -181,7 +183,7 @@ class _WifiPageState extends State<WifiPage> {
               for (int i = 0; i < 4; i++)
                 FocoSwitch(
                   titulo: _labels[i],
-                  estado: states[i],
+                  estado: isAuto ? false : states[i],
                   enabled: !isAuto && !_cargando && _estaConectado,
                   loading: _cargando,
                   onChanged: (v) => _setRelay(i, v),

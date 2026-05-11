@@ -467,10 +467,26 @@ void setupWebServer() {
 
   server.on("/mode/auto", []() {
     autoMode = true; saveMode();
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(RELAY_PINS[i], LOW);
+      relayStatus[i] = false;
+      lastSchedState[i] = false;
+    }
     server.send(200, "text/plain", "OK");
   });
   server.on("/mode/manual", []() {
     autoMode = false; saveMode();
+    server.send(200, "text/plain", "OK");
+  });
+  server.on("/alloff", []() {
+    if (autoMode) {
+      server.send(400, "text/plain", "ERR:AUTO");
+      return;
+    }
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(RELAY_PINS[i], LOW);
+      relayStatus[i] = false;
+    }
     server.send(200, "text/plain", "OK");
   });
   server.begin();
@@ -502,7 +518,26 @@ void processCommand(String cmd) {
     }
   }
 
-  if (cmd == "GA" || cmd == "A") { autoMode = true; saveMode(); reply("ACK:A"); return; }
+  if (cmd == "ALLOFF") {
+    if (autoMode) { reply("ERR:AUTO"); return; }
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(RELAY_PINS[i], LOW);
+      relayStatus[i] = false;
+    }
+    reply("ACK:ALLOFF");
+    return;
+  }
+
+  if (cmd == "GA" || cmd == "A") { 
+    autoMode = true; saveMode(); 
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(RELAY_PINS[i], LOW);
+      relayStatus[i] = false;
+      lastSchedState[i] = false;
+    }
+    reply("ACK:A"); 
+    return; 
+  }
   if (cmd == "GM" || cmd == "M") { autoMode = false; saveMode(); reply("ACK:M"); return; }
 
   if (cmd == "S?") {
@@ -527,7 +562,16 @@ void processCommand(String cmd) {
     }
   }
 
-  if (cmd == "GLOBAL_AUTO") { autoMode = true; saveMode(); reply("MODE:GLOBAL:AUTO"); return; }
+  if (cmd == "GLOBAL_AUTO") { 
+    autoMode = true; saveMode(); 
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(RELAY_PINS[i], LOW);
+      relayStatus[i] = false;
+      lastSchedState[i] = false;
+    }
+    reply("MODE:GLOBAL:AUTO"); 
+    return; 
+  }
   if (cmd == "GLOBAL_MANUAL") { autoMode = false; saveMode(); reply("MODE:GLOBAL:MAN"); return; }
   if (cmd == "STATUS") {
     String s = "S:";
@@ -537,7 +581,26 @@ void processCommand(String cmd) {
     return;
   }
 
-  if (cmd.startsWith("SETSCHED:")) {
+  if (cmd == "GETSCHEDS") {
+    char sb[64];
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < MAX_SCHEDS; j++) {
+        if (channelSchedules[i][j].enabled) {
+          snprintf(sb, sizeof(sb), "LSCHED:%d:%d:%d:%d:%d:%d:%d", 
+                   i + 1, j, 
+                   channelSchedules[i][j].daysMask,
+                   channelSchedules[i][j].onHour, channelSchedules[i][j].onMinute,
+                   channelSchedules[i][j].offHour, channelSchedules[i][j].offMinute);
+          reply(sb);
+          if (!bluetoothEnabled) delay(150); // Dar tiempo a LoRa
+        }
+      }
+    }
+    reply("SYNC_DONE");
+    return;
+  }
+
+  if (cmd.startsWith("SETSCHED:") || cmd.startsWith("SC:")) {
     int p[8]; int count = 0, pos = 0;
     while (pos != -1 && count < 8) {
       int next = cmd.indexOf(':', pos);
@@ -545,11 +608,35 @@ void processCommand(String cmd) {
       pos = (next == -1) ? -1 : next + 1;
     }
     if (count == 8) {
+      // Si el comando es SC:, asumimos índices 0-basados en el comando corto o ajustamos según se necesite.
+      // Pero para compatibilidad asumiremos que canal viene 1-4, igual que SETSCHED.
       int ch = p[1] - 1, idx = p[2];
       if (ch >= 0 && ch < 4 && idx >= 0 && idx < MAX_SCHEDS) {
         channelSchedules[ch][idx] = {(uint8_t)p[4], (uint8_t)p[5], (uint8_t)p[6], (uint8_t)p[7], (uint8_t)p[3], true};
         saveSchedules(); reply("SCHED OK");
       }
+    }
+    return;
+  }
+  
+  if (cmd.startsWith("DIS_SCHED:")) {
+    int f = cmd.indexOf(':'), s = cmd.indexOf(':', f+1);
+    if (s != -1) {
+      int ch = cmd.substring(f+1, s).toInt() - 1;
+      int idx = cmd.substring(s+1).toInt();
+      if (ch >= 0 && ch < 4 && idx >= 0 && idx < MAX_SCHEDS) {
+        channelSchedules[ch][idx].enabled = false;
+        saveSchedules(); reply("DIS OK");
+      }
+    }
+    return;
+  }
+
+  if (cmd.startsWith("CLEAR_SCHEDS:")) {
+    int ch = cmd.substring(cmd.indexOf(':') + 1).toInt() - 1;
+    if (ch >= 0 && ch < 4) {
+      for (int j = 0; j < MAX_SCHEDS; j++) channelSchedules[ch][j].enabled = false;
+      saveSchedules(); reply("CLEAR OK");
     }
     return;
   }

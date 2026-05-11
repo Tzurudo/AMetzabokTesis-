@@ -642,7 +642,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
 <div class="page">
   <div id="manual-ui">
-    <div class="section-title">Control de Relevadores</div>
+    <div class="section-title">
+      Control de Relevadores
+      <button class="btn btn-off" style="float:right; padding:6px 12px; font-size:0.75rem; width:auto; border-radius:8px" onclick="sendAllOff()">Apagar Todos</button>
+      <div style="clear:both"></div>
+    </div>
     <div class="relay-grid" id="relayGrid"></div>
   </div>
 
@@ -654,6 +658,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
   <div class="section-title">Monitor de Sistema</div>
   <div class="console-box">
     <div id="console"></div>
+    <div style="display:flex; gap:10px; margin-top:12px">
+      <input type="text" id="cmdInput" placeholder="Comando (ej: SC:1:0:127:8:0:18:0)" onkeypress="if(event.key==='Enter')sendCmdInput()" style="flex:1; padding:10px; border-radius:8px; border:1px solid #333; background:#1A2332; color:#0F0; font-family:monospace; outline:none">
+      <button class="btn btn-on" style="flex:none; padding:10px 20px; border-radius:8px" onclick="sendCmdInput()">Enviar</button>
+    </div>
   </div>
 </div>
 
@@ -811,6 +819,34 @@ async function sendRelay(ch, st){
   }
 }
 
+async function sendAllOff(){
+  log('Enviando: ALLOFF', 'log-cmd');
+  try {
+    const r = await fetch('/cmd?q=ALLOFF');
+    const d = await r.json();
+    log(`Respuesta: ${d.message}`);
+    for(let i=0; i<4; i++) relayOn[i] = false;
+    renderUI();
+  } catch(e) {
+    log('Error al enviar ALLOFF','err');
+  }
+}
+
+async function sendCmdInput(){
+  const i = document.getElementById('cmdInput');
+  const v = i.value.trim().toUpperCase();
+  if(!v) return;
+  i.value = '';
+  log(`Enviando: ${v}`, 'log-cmd');
+  try {
+    const r = await fetch(`/cmd?q=${encodeURIComponent(v)}`);
+    const d = await r.json();
+    log(`Respuesta: ${d.message}`);
+  } catch(e) {
+    log('Error de conexión','err');
+  }
+}
+
 async function toggleMode(){
   const target = document.getElementById('mode-switch').checked ? 'A' : 'M';
   log(`Cambiando modo a: ${target==='A'?'Auto':'Manual'}`, 'log-cmd');
@@ -835,24 +871,53 @@ async function poll(){
   } catch(e) {}
 }
 
-// Para el gateway, necesitamos un poll que pida S? periódicamente
+// Para el gateway, necesitamos un poll que pida S? y GETSCHEDS
 async function syncStatus(){
   try {
     const r = await fetch('/cmd?q=S?');
     const d = await r.json();
-    const msg = d.message; // Ej: S:1010:A
-    if(msg.startsWith('S:')){
+    const msg = d.message; 
+    if(msg && msg.startsWith('S:')){
       const parts = msg.split(':');
-      const states = parts[1];
-      const mode = parts[2];
-      
-      autoMode = (mode === 'A');
-      for(let i=0; i<4; i++){
-        relayOn[i] = (states[i] === '1');
-        pending[i] = false;
+      if(parts.length >= 3){
+        const states = parts[1];
+        const mode = parts[2];
+        
+        autoMode = (mode === 'A');
+        for(let i=0; i<4; i++){
+          relayOn[i] = (states[i] === '1');
+          pending[i] = false;
+        }
       }
-      renderUI();
     }
+
+    if(autoMode) {
+      // Sync schedules solo en modo automático para no saturar
+      const r2 = await fetch('/cmd?q=GETSCHEDS');
+      const d2 = await r2.json();
+      if(d2.message){
+        const lines = d2.message.split('\\n');
+        let newSchedules = [];
+        for(let line of lines) {
+          if(line.startsWith("LSCHED:")) {
+            const p = line.split(':');
+            if(p.length >= 8) {
+              newSchedules.push({
+                ch: parseInt(p[1]),
+                idx: parseInt(p[2]),
+                mask: parseInt(p[3]),
+                onH: parseInt(p[4]),
+                onM: parseInt(p[5]),
+                offH: parseInt(p[6]),
+                offM: parseInt(p[7])
+              });
+            }
+          }
+        }
+        schedules = newSchedules;
+      }
+    }
+    renderUI();
   } catch(e) {}
 }
 
@@ -900,12 +965,25 @@ void setupWebServer() {
     if (sendLoRaToSlave(q.c_str())) {
       lastLoRaResponse = "";
       unsigned long start = millis();
-      while (millis() - start < 2000) {
+      String accumulated = "";
+      bool isMulti = q.startsWith("GETSCHEDS");
+      unsigned long timeout = isMulti ? 3000 : 2000;
+      
+      while (millis() - start < timeout) {
         receiveLoRa();
-        if (lastLoRaResponse.length() > 0) break;
+        if (lastLoRaResponse.length() > 0) {
+          accumulated += lastLoRaResponse;
+          if (isMulti) {
+            accumulated += "\\n";
+            if (lastLoRaResponse == "SYNC_DONE") break;
+            lastLoRaResponse = "";
+          } else {
+            break;
+          }
+        }
         delay(10);
       }
-      String msg = (lastLoRaResponse.length() > 0) ? lastLoRaResponse : "Comando enviado";
+      String msg = (accumulated.length() > 0) ? accumulated : "Comando enviado";
       server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"" + msg + "\"}");
     } else {
       server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"LoRa TX failed\"}");

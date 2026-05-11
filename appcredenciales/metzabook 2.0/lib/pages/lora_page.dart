@@ -16,10 +16,6 @@ class _LoraPageState extends State<LoraPage>
 
   // Paleta consistente con la app (blanco/oro/plata)
   static const Color premiumGold = Color(0xFFD4AF37);
-  static const Color premiumSilver = Color(0xFFE0E0E0);
-  static const Color darkSilver = Color(0xFF757575);
-  static const Color darkText = Color(0xFF2D2D2D);
-  static const Color accentBlue = Color(0xFF297AF3);
 
   @override
   void initState() {
@@ -108,10 +104,10 @@ class _LoraPageState extends State<LoraPage>
                   const SizedBox(height: 24),
 
                   // ── Sección: ¿Cómo funciona? ──
-                  _SectionLabel('¿Cómo funciona LoRa?'),
+                  const _SectionLabel('¿Cómo funciona LoRa?'),
                   const SizedBox(height: 12),
 
-                  _StepCard(
+                  const _StepCard(
                     step: '1',
                     icon: Icons.router_outlined,
                     title: 'Gateway ESP32-C3',
@@ -119,7 +115,7 @@ class _LoraPageState extends State<LoraPage>
                         'El Gateway ESP32-C3 recibe los comandos por Bluetooth (BLE) desde tu teléfono y los retransmite al dispositivo Metzabok vía radio LoRa a 915 MHz.',
                   ),
                   const SizedBox(height: 10),
-                  _StepCard(
+                  const _StepCard(
                     step: '2',
                     icon: Icons.settings_input_antenna,
                     title: 'Enlace de largo alcance',
@@ -127,7 +123,7 @@ class _LoraPageState extends State<LoraPage>
                         'LoRa (Long Range) permite comunicación hasta 2 km en campo abierto, ideal para invernaderos o terrenos amplios sin cobertura WiFi.',
                   ),
                   const SizedBox(height: 10),
-                  _StepCard(
+                  const _StepCard(
                     step: '3',
                     icon: Icons.wifi_tethering,
                     title: 'Modo WiFi opcional',
@@ -135,7 +131,7 @@ class _LoraPageState extends State<LoraPage>
                         'Una vez que el Metzabok esté conectado a tu red WiFi, podrás controlarlo directamente desde el navegador en metzabok.local, sin necesidad de Bluetooth.',
                   ),
                   const SizedBox(height: 10),
-                  _StepCard(
+                  const _StepCard(
                     step: '4',
                     icon: Icons.electric_bolt_outlined,
                     title: 'Control de relays',
@@ -145,7 +141,7 @@ class _LoraPageState extends State<LoraPage>
                   const SizedBox(height: 28),
 
                   // ── Requisitos ──
-                  _SectionLabel('Requisitos para usar la web'),
+                  const _SectionLabel('Requisitos para usar la web'),
                   const SizedBox(height: 12),
                   const _RequirementTile(
                     icon: Icons.wifi,

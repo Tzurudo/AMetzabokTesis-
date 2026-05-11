@@ -357,6 +357,9 @@ class _BluetoothPageState extends State<BluetoothPage> {
                       inactiveThumbColor: Colors.orange,
                       onChanged: (val) {
                         _btManager.isGlobalAuto.value = val;
+                        if (val) {
+                          _btManager.relayStates.value = {1: false, 2: false, 3: false, 4: false};
+                        }
                         _sendCommand(val ? "GLOBAL_AUTO" : "GLOBAL_MANUAL");
                       },
                     ),

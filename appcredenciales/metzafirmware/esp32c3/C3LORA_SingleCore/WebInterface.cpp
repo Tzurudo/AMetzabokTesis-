@@ -5,938 +5,374 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Metzabok - Gateway Premium</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --gold:#D4AF37; --gold-light:#F7E6AD; --gold-dark:#A88000;
-    --white:#FFFFFF; --bg-light:#F0F4F8; --bg:#E8EEF5;
-    --text:#1A2B4E; --text-light:#5A6B7F; --green:#2ECC71; --red:#E74C3C;
-    --blue:#3498DB; --purple:#9B59B6;
-    --shadow:0 8px 24px rgba(0,0,0,0.1);
-    --shadow-sm:0 2px 8px rgba(0,0,0,0.08);
-  }
-  
-  *{box-sizing:border-box;margin:0;padding:0}
-  
-  html{scroll-behavior:smooth}
-  body{
-    font-family:'Poppins',sans-serif;
-    background:linear-gradient(135deg, var(--bg-light) 0%, var(--bg) 100%);
-    color:var(--text);
-    min-height:100vh;
-    padding:0 0 50px;
-    position:relative;
-  }
-  
-  /* Animaciones */
-  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-  
-  /* Header */
-  .header{
-    background:linear-gradient(135deg, var(--text) 0%, #1A3A5C 100%);
-    padding:32px 24px;
-    text-align:center;
-    box-shadow:var(--shadow);
-    border-bottom:4px solid var(--gold);
-    position:relative;
-    overflow:hidden;
-    animation:slideDown 0.6s ease-out;
-  }
-  
-  .header::before{
-    content:"";
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1" fill="white" opacity="0.1"/><circle cx="80" cy="80" r="1" fill="white" opacity="0.1"/></svg>');
-    opacity:0.3;
-  }
-  
-  .header-content{position:relative;z-index:1}
-  
-  .header h1{
-    color:var(--white);
-    font-size:2rem;
-    font-weight:700;
-    letter-spacing:3px;
-    margin:0;
-    text-shadow:2px 2px 4px rgba(0,0,0,0.2);
-  }
-  
-  .header p{
-    color:var(--gold);
-    font-size:0.85rem;
-    letter-spacing:2px;
-    margin-top:8px;
-    text-transform:uppercase;
-    font-weight:600;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Metzabok Gateway Pro</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
+        :root {
+            --gold: #C5A048; --gold-dark: #8E6D28; --silver: #E0E0E0; --white: #FFFFFF;
+            --black: #0F1419; --bg: #F8F9FA; --text-main: #2C3E50; --text-light: #7F8C8D;
+            --danger: #C0392B; --success: #27AE60; --card-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); font-family: 'Montserrat', sans-serif; color: var(--text-main); padding-bottom: 50px; }
+        .header { background: var(--white); padding: 30px 20px; border-bottom: 4px solid var(--gold); text-align: center; }
+        .header h1 { font-size: 1.8rem; font-weight: 800; letter-spacing: 2px; color: var(--black); text-transform: uppercase; }
+        .system-bar { display: flex; justify-content: space-between; padding: 12px 20px; background: #F1F3F5; font-size: 0.65rem; font-weight: 700; color: var(--text-light); }
+        .content { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .card { background: var(--white); border-radius: 24px; padding: 24px; margin-bottom: 20px; box-shadow: var(--card-shadow); }
+        .card-title { font-size: 0.7rem; font-weight: 800; color: var(--gold-dark); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 18px; display: flex; justify-content: space-between; }
+        
+        .mode-card { display: flex; gap: 10px; margin-bottom: 25px; }
+        .mode-btn { flex: 1; padding: 18px; border-radius: 15px; border: 2px solid var(--silver); background: var(--white); font-weight: 800; cursor: pointer; transition: 0.3s; }
+        .mode-btn.active { background: var(--gold); border-color: var(--gold); color: var(--white); box-shadow: 0 5px 15px rgba(197, 160, 72, 0.3); }
 
-  /* Mode Switch Bar */
-  .mode-bar{
-    background:var(--white);
-    margin:24px 16px;
-    padding:22px;
-    border-radius:24px;
-    box-shadow:var(--shadow);
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    border:2px solid var(--gold);
-    animation:fadeIn 0.6s ease-out 0.2s both;
-    transition:transform 0.3s ease, box-shadow 0.3s ease;
-  }
-  
-  .mode-bar:hover{
-    transform:translateY(-4px);
-    box-shadow:0 12px 32px rgba(0,0,0,0.15);
-  }
-  
-  .mode-info{flex:1}
-  .mode-title{font-weight:700;font-size:1.15rem;display:block;color:var(--text)}
-  .mode-desc{font-size:0.8rem;color:var(--text-light);font-weight:500;margin-top:4px}
-  
-  .switch{position:relative;display:inline-block;width:70px;height:38px}
-  .switch input{opacity:0;width:0;height:0}
-  .slider{
-    position:absolute;
-    cursor:pointer;
-    top:0;
-    left:0;
-    right:0;
-    bottom:0;
-    background-color:#ddd;
-    transition:0.4s;
-    border-radius:38px;
-    border:2px solid #ccc;
-  }
-  .slider:before{
-    position:absolute;
-    content:"";
-    height:30px;
-    width:30px;
-    left:3px;
-    bottom:2px;
-    background-color:white;
-    transition:0.4s;
-    border-radius:50%;
-    box-shadow:0 2px 8px rgba(0,0,0,0.2);
-  }
-  input:checked + .slider{
-    background:linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
-    border-color:var(--gold-dark);
-  }
-  input:checked + .slider:before{
-    transform:translateX(32px);
-  }
+        /* Conditional Sections */
+        #manualSection, #autoSection { display: none; }
+        .show { display: block !important; }
 
-  /* Layout */
-  .page{max-width:900px;margin:0 auto;padding:10px 16px}
-  
-  .section-title{
-    font-size:0.75rem;
-    font-weight:700;
-    letter-spacing:2.5px;
-    text-transform:uppercase;
-    color:var(--gold);
-    margin:28px 0 16px;
-    border-left:5px solid var(--gold);
-    padding-left:12px;
-    animation:fadeIn 0.6s ease-out;
-  }
+        /* Manual UI */
+        .output-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #F1F3F5; }
+        .output-row:last-child { border-bottom: none; }
+        .output-name { font-weight: 700; font-size: 0.9rem; }
+        .toggle { position: relative; width: 50px; height: 26px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #E9ECEF; border-radius: 34px; transition: 0.3s; border: 1px solid var(--silver); }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; border-radius: 50%; transition: 0.3s; }
+        input:checked + .slider { background-color: var(--gold); }
+        input:checked + .slider:before { transform: translateX(24px); }
 
-  /* Manual UI: Grid */
-  .relay-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-    gap:14px;
-    animation:fadeIn 0.6s ease-out 0.3s both;
-  }
-  
-  .relay-card{
-    background:var(--white);
-    border-radius:20px;
-    padding:20px 18px;
-    text-align:center;
-    box-shadow:var(--shadow-sm);
-    border:2px solid transparent;
-    transition:all 0.3s ease;
-    position:relative;
-    overflow:hidden;
-  }
-  
-  .relay-card::before{
-    content:"";
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:4px;
-    background:linear-gradient(90deg, var(--blue), var(--gold));
-  }
-  
-  .relay-card:hover{
-    transform:translateY(-8px);
-    box-shadow:var(--shadow);
-    border-color:var(--gold-light);
-  }
-  
-  .relay-card.pending{
-    opacity:0.7;
-    pointer-events:none;
-  }
-  
-  .relay-card.pending .relay-icon{
-    animation:spin 2s linear infinite;
-  }
-  
-  .ch-tag{
-    position:absolute;
-    top:12px;
-    right:12px;
-    font-size:0.65rem;
-    font-weight:700;
-    color:var(--gold);
-    background:rgba(212,175,55,0.1);
-    padding:6px 10px;
-    border-radius:12px;
-  }
-  
-  .relay-icon{
-    font-size:3rem;
-    margin-bottom:10px;
-    display:block;
-  }
-  
-  .relay-icon.on{color:var(--green)}
-  .relay-icon.off{color:#E53935}
-  
-  .relay-name{font-weight:700;font-size:0.95rem;display:block;margin-bottom:6px;color:var(--text)}
-  
-  .relay-status{
-    font-size:0.8rem;
-    font-weight:700;
-    margin-bottom:12px;
-    letter-spacing:0.5px;
-    padding:6px 10px;
-    border-radius:8px;
-    display:inline-block;
-  }
+        /* Auto UI - JComboBox style */
+        .auto-output-box { border: 1px solid var(--silver); border-radius: 18px; padding: 18px; margin-bottom: 15px; }
+        .output-label { font-size: 0.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 10px; display: block; }
+        select.sched-select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--silver); font-family: inherit; font-weight: 600; font-size: 0.85rem; background: #fff; margin-bottom: 10px; }
+        .sched-actions { display: flex; gap: 8px; }
+        .btn-small { flex: 1; padding: 10px; border-radius: 10px; border: none; font-weight: 700; font-size: 0.65rem; cursor: pointer; text-transform: uppercase; }
+        .btn-edit { background: var(--gold); color: white; }
+        .btn-delete { background: #fbe9e7; color: var(--danger); }
+        .btn-add { background: #E9ECEF; color: var(--text-main); width: 100%; margin-top: 5px; }
 
-  .relay-status.on{
-    background:rgba(46,204,113,0.15);
-    color:var(--green);
-  }
+        /* General Buttons */
+        .btn-main { width: 100%; padding: 18px; border-radius: 15px; border: none; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; }
+        .btn-gold { background: var(--gold); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
 
-  .relay-status.off{
-    background:rgba(229,57,53,0.15);
-    color:#E53935;
-  }
+        /* Overlay & Modals */
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 9000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { width: 40px; height: 40px; border: 4px solid var(--silver); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { margin-top: 15px; font-weight: 800; font-size: 0.7rem; color: var(--gold-dark); letter-spacing: 2px; }
 
-  /* Channel Switches */
-  .channel-switch{
-    position:relative;
-    display:inline-block;
-    width:80px;
-    height:42px;
-    margin-top:8px;
-  }
+        .modal-wrap { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 5000; display: none; align-items: center; justify-content: center; }
+        .modal { background: white; width: 90%; max-width: 400px; border-radius: 24px; padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.65rem; font-weight: 800; color: var(--text-light); text-transform: uppercase; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--silver); font-family: inherit; font-weight: 600; }
+        .day-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .day-opt { font-size: 0.6rem; font-weight: 800; display: flex; align-items: center; gap: 4px; }
+        
+        .tabs-mini { display: flex; gap: 10px; margin-top: 20px; }
+        .tab-mini-btn { flex: 1; padding: 10px; font-size: 0.6rem; font-weight: 800; border: none; background: #eee; border-radius: 8px; cursor: pointer; color: #777; }
+        .tab-mini-btn.active { background: var(--black); color: white; }
 
-  .channel-switch input{
-    opacity:0;
-    width:0;
-    height:0;
-  }
-
-  .switch-slider{
-    position:absolute;
-    cursor:pointer;
-    top:0;
-    left:0;
-    right:0;
-    bottom:0;
-    background-color:#ccc;
-    transition:0.3s;
-    border-radius:42px;
-    border:3px solid #999;
-  }
-
-  .switch-slider:before{
-    position:absolute;
-    content:"";
-    height:32px;
-    width:32px;
-    left:4px;
-    bottom:3px;
-    background-color:white;
-    transition:0.3s;
-    border-radius:50%;
-    box-shadow:0 2px 10px rgba(0,0,0,0.25);
-  }
-
-  /* Manual mode - Green ON switch */
-  .channel-switch.manual input:checked + .switch-slider{
-    background:linear-gradient(135deg, var(--green) 0%, #27ae60 100%);
-    border-color:#229954;
-    box-shadow:0 0 20px rgba(46,204,113,0.4);
-  }
-
-  .channel-switch.manual input:checked + .switch-slider:before{
-    transform:translateX(38px);
-  }
-
-  /* OFF state - Red/Gray switch */
-  .channel-switch.manual:not(.on) .switch-slider{
-    background:linear-gradient(135deg, #E53935 0%, #C62828 100%);
-    border-color:#B71C1C;
-    box-shadow:0 0 20px rgba(229,57,53,0.3);
-  }
-  
-  .btn-row{display:flex;gap:10px;justify-content:center}
-  
-  .btn{
-    padding:14px 12px;
-    border-radius:16px;
-    border:none;
-    font-family:inherit;
-    font-weight:700;
-    font-size:0.85rem;
-    cursor:pointer;
-    flex:1;
-    transition:all 0.3s ease;
-    text-transform:uppercase;
-    letter-spacing:1px;
-    position:relative;
-    overflow:hidden;
-  }
-  
-  .btn::before{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:50%;
-    width:0;
-    height:0;
-    border-radius:50%;
-    background:rgba(255,255,255,0.3);
-    transition:width 0.6s, height 0.6s;
-    transform:translate(-50%,-50%);
-  }
-  
-  .btn:active::before{
-    width:300px;
-    height:300px;
-  }
-  
-  .btn-on{
-    background:linear-gradient(135deg, var(--blue), #0984e3);
-    color:white;
-    box-shadow:0 4px 15px rgba(52,152,219,0.3);
-  }
-  
-  .btn-on:hover{
-    transform:translateY(-2px);
-    box-shadow:0 6px 20px rgba(52,152,219,0.4);
-  }
-  
-  .btn-off{
-    background:var(--bg-light);
-    color:var(--text-light);
-    border:2px solid #ddd;
-  }
-  
-  .btn-off:hover{
-    background:#e0e6ed;
-    border-color:var(--text-light);
-    transform:translateY(-2px);
-  }
-
-  /* Auto UI: Schedules */
-  .sched-list{
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-    animation:fadeIn 0.6s ease-out 0.3s both;
-  }
-  
-  .sched-card{
-    background:var(--white);
-    border-radius:24px;
-    padding:22px;
-    box-shadow:var(--shadow-sm);
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    border-left:6px solid var(--gold);
-    transition:all 0.3s ease;
-    position:relative;
-  }
-  
-  .sched-card::before{
-    content:"";
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:4px;
-    background:linear-gradient(90deg, var(--gold), transparent);
-  }
-  
-  .sched-card:hover{
-    transform:translateX(8px);
-    box-shadow:var(--shadow);
-  }
-  
-  .sched-ch{
-    font-size:0.7rem;
-    font-weight:800;
-    color:var(--gold);
-    text-transform:uppercase;
-    letter-spacing:1.5px;
-  }
-  
-  .sched-time{
-    font-size:1.25rem;
-    font-weight:700;
-    display:block;
-    margin:6px 0;
-    color:var(--text);
-  }
-  
-  .sched-days{
-    font-size:0.8rem;
-    color:var(--text-light);
-    font-weight:500;
-  }
-  
-  .active-badge{
-    background:linear-gradient(135deg, var(--gold-light), #e6d676);
-    color:var(--gold-dark);
-    padding:8px 16px;
-    border-radius:16px;
-    font-size:0.7rem;
-    font-weight:800;
-    letter-spacing:1px;
-    text-transform:uppercase;
-    box-shadow:0 4px 12px rgba(212,175,55,0.2);
-  }
-
-  /* Console */
-  .console-box{
-    background:#0F1419;
-    border-radius:24px;
-    padding:18px;
-    margin-top:28px;
-    box-shadow:var(--shadow);
-    border:2px solid #252d38;
-    animation:fadeIn 0.6s ease-out 0.4s both;
-  }
-  
-  #console{
-    height:160px;
-    overflow-y:auto;
-    font-family:'Courier New',monospace;
-    font-size:0.85rem;
-    color:#00FF00;
-    line-height:1.6;
-    padding:12px;
-  }
-  
-  #console::-webkit-scrollbar{width:6px}
-  #console::-webkit-scrollbar-track{background:#1a2332;border-radius:10px}
-  #console::-webkit-scrollbar-thumb{background:#4CAF50;border-radius:10px}
-  
-  .log-line{
-    margin-bottom:6px;
-    padding:4px 8px;
-    border-radius:4px;
-    animation:fadeIn 0.3s ease-out;
-  }
-  
-  .log-cmd{color:#00AAFF}
-  .log-err{color:#FF6B6B}
-  .log-ok{color:#51CF66}
-
-  /* Config Section */
-  .config-btn{
-    position:fixed;
-    bottom:24px;
-    right:24px;
-    width:56px;
-    height:56px;
-    border-radius:50%;
-    background:linear-gradient(135deg, var(--gold), var(--gold-dark));
-    color:var(--text);
-    border:none;
-    font-weight:700;
-    font-size:1.6rem;
-    cursor:pointer;
-    box-shadow:var(--shadow);
-    transition:all 0.3s ease;
-    z-index:100;
-  }
-  
-  .config-btn:hover{
-    transform:scale(1.1);
-    box-shadow:0 12px 32px rgba(212,175,55,0.4);
-  }
-  
-  .config-modal{
-    display:none;
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.6);
-    z-index:1000;
-    justify-content:center;
-    align-items:center;
-    animation:fadeIn 0.3s ease-out;
-  }
-  
-  .config-modal.active{display:flex}
-  
-  .config-content{
-    background:var(--white);
-    border-radius:28px;
-    padding:32px;
-    width:90%;
-    max-width:500px;
-    max-height:80vh;
-    overflow-y:auto;
-    box-shadow:0 20px 60px rgba(0,0,0,0.3);
-    animation:slideDown 0.3s ease-out;
-  }
-  
-  .config-header{
-    font-size:1.4rem;
-    font-weight:700;
-    margin-bottom:24px;
-    color:var(--text);
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-  }
-  
-  .config-close{
-    background:none;
-    border:none;
-    font-size:1.5rem;
-    cursor:pointer;
-    color:var(--text-light);
-    transition:color 0.3s ease;
-  }
-  
-  .config-close:hover{color:var(--text)}
-  
-  .config-form{display:flex;flex-direction:column;gap:16px}
-  
-  .form-group{
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-  }
-  
-  .form-group label{
-    font-weight:700;
-    font-size:0.9rem;
-    color:var(--text);
-    letter-spacing:0.5px;
-  }
-  
-  .form-group input{
-    padding:12px;
-    border:2px solid #ddd;
-    border-radius:12px;
-    font-family:inherit;
-    font-size:0.9rem;
-    transition:all 0.3s ease;
-  }
-  
-  .form-group input:focus{
-    outline:none;
-    border-color:var(--gold);
-    box-shadow:0 0 0 3px rgba(212,175,55,0.1);
-  }
-  
-  .config-actions{
-    display:flex;
-    gap:12px;
-    margin-top:24px;
-  }
-  
-  .config-actions button{
-    flex:1;
-    padding:14px;
-    border:none;
-    border-radius:12px;
-    font-weight:700;
-    cursor:pointer;
-    transition:all 0.3s ease;
-  }
-  
-  .btn-save{
-    background:linear-gradient(135deg, var(--green), #27ae60);
-    color:white;
-  }
-  
-  .btn-save:hover{
-    transform:translateY(-2px);
-    box-shadow:0 6px 16px rgba(46,204,113,0.3);
-  }
-  
-  .btn-cancel{
-    background:var(--bg-light);
-    color:var(--text);
-    border:2px solid #ddd;
-  }
-  
-  .btn-cancel:hover{
-    background:#e0e6ed;
-    border-color:var(--text-light);
-  }
-
-  /* Responsive */
-
-  @media(max-width:640px){
-    .header h1{font-size:1.6rem}
-    .relay-grid{grid-template-columns:1fr 1fr;gap:14px}
-    .mode-bar{margin:20px 12px;padding:18px}
-    .page{padding:8px 12px}
-    .section-title{margin-top:20px;margin-bottom:12px}
-  }
-  
-  @media(max-width:480px){
-    .header{padding:24px 16px}
-    .header h1{font-size:1.4rem;letter-spacing:1.5px}
-    .relay-grid{grid-template-columns:1fr}
-    .btn-row{gap:6px}
-  }
-</style>
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #333; color: white; padding: 10px 25px; border-radius: 50px; font-weight: 700; font-size: 0.75rem; transition: 0.3s; z-index: 10000; }
+        .toast.active { transform: translateX(-50%) translateY(0); }
+    </style>
 </head>
 <body>
 
+<div id="loader" class="overlay">
+    <div class="spinner"></div>
+    <div class="loader-text">SINCRONIZANDO LORA</div>
+</div>
+
 <div class="header">
-  <h1>METZABOOK</h1>
-  <p>Gateway de Control LoRa</p>
+    <h1>METZABOK</h1>
 </div>
 
-<div class="mode-bar">
-  <div class="mode-info">
-    <span class="mode-title" id="mode-text">MODO MANUAL</span>
-    <span class="mode-desc" id="mode-desc">Control directo de dispositivos</span>
-  </div>
-  <label class="switch">
-    <input type="checkbox" id="mode-switch" onchange="toggleMode()">
-    <span class="slider"></span>
-  </label>
+<div class="system-bar">
+    <span id="statusLabel">CONECTADO</span>
+    <span id="syncLabel">--:--:--</span>
 </div>
 
-<div class="page">
-  <div id="manual-ui">
-    <div class="section-title">
-      Control de Relevadores
-      <button class="btn btn-off" style="float:right; padding:6px 12px; font-size:0.75rem; width:auto; border-radius:8px" onclick="sendAllOff()">Apagar Todos</button>
-      <div style="clear:both"></div>
+<div class="content">
+    <div class="mode-card">
+        <button id="modeM" class="mode-btn" onclick="setMode('M')">MANUAL</button>
+        <button id="modeA" class="mode-btn" onclick="setMode('A')">AUTOMÁTICO</button>
     </div>
-    <div class="relay-grid" id="relayGrid"></div>
-  </div>
 
-  <div id="auto-ui" style="display:none">
-    <div class="section-title">Horarios Programados</div>
-    <div class="sched-list" id="schedList"></div>
-  </div>
-
-  <div class="section-title">Monitor de Sistema</div>
-  <div class="console-box">
-    <div id="console"></div>
-    <div style="display:flex; gap:10px; margin-top:12px">
-      <input type="text" id="cmdInput" placeholder="Comando (ej: SC:1:0:127:8:0:18:0)" onkeypress="if(event.key==='Enter')sendCmdInput()" style="flex:1; padding:10px; border-radius:8px; border:1px solid #333; background:#1A2332; color:#0F0; font-family:monospace; outline:none">
-      <button class="btn btn-on" style="flex:none; padding:10px 20px; border-radius:8px" onclick="sendCmdInput()">Enviar</button>
+    <!-- Sección Manual -->
+    <div id="manualSection">
+        <div class="card">
+            <div class="card-title">Control de Dispositivos</div>
+            <div id="manualGrid"></div>
+            <button class="btn-main btn-gold" onclick="applyManual()">APLICAR CAMBIOS</button>
+        </div>
+        <button class="btn-main btn-danger" onclick="emergencyStop()">PARO DE EMERGENCIA</button>
     </div>
-  </div>
+
+    <!-- Sección Automática -->
+    <div id="autoSection">
+        <div class="card">
+            <div class="card-title">Programación de Salidas</div>
+            <div id="autoBoxes"></div>
+        </div>
+    </div>
+
+    <!-- Sección Configuración (Nombres) -->
+    <div id="configSection" style="display:none">
+        <div class="card">
+            <div class="card-title">Renombrar Salidas</div>
+            <div id="nameInputs"></div>
+            <button class="btn-main btn-gold" onclick="saveSettings()">GUARDAR AJUSTES</button>
+        </div>
+    </div>
+
+    <div class="tabs-mini">
+        <button id="tabMain" class="tab-mini-btn active" onclick="showSub('main')">PANEL PRINCIPAL</button>
+        <button id="tabSettings" class="tab-mini-btn" onclick="showSub('config')">AJUSTES</button>
+    </div>
 </div>
 
-<!-- Botón de Configuración -->
-<button class="config-btn" onclick="openConfigModal()">⚙️</button>
-
-<!-- Modal de Configuración -->
-<div id="configModal" class="config-modal">
-  <div class="config-content">
-    <div class="config-header">
-      <span>Configuración</span>
-      <button class="config-close" onclick="closeConfigModal()">✕</button>
+<!-- Modal de Horario -->
+<div id="schedModal" class="modal-wrap">
+    <div class="modal">
+        <div class="card-title" id="modalTitle">Nuevo Horario</div>
+        <input type="hidden" id="editCh">
+        <input type="hidden" id="editIdx" value="0">
+        <div class="form-group">
+            <label>Días</label>
+            <div class="day-grid" id="dayPicker">
+                <label class="day-opt"><input type="checkbox" value="1" checked> LUN</label>
+                <label class="day-opt"><input type="checkbox" value="2" checked> MAR</label>
+                <label class="day-opt"><input type="checkbox" value="3" checked> MIE</label>
+                <label class="day-opt"><input type="checkbox" value="4" checked> JUE</label>
+                <label class="day-opt"><input type="checkbox" value="5" checked> VIE</label>
+                <label class="day-opt"><input type="checkbox" value="6" checked> SAB</label>
+                <label class="day-opt"><input type="checkbox" value="0" checked> DOM</label>
+            </div>
+        </div>
+        <div style="display:flex; gap:10px">
+            <div class="form-group" style="flex:1">
+                <label>Inicio</label>
+                <input type="time" id="sOn" value="08:00">
+            </div>
+            <div class="form-group" style="flex:1">
+                <label>Fin</label>
+                <input type="time" id="sOff" value="18:00">
+            </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px">
+            <button class="btn-main" style="background:#eee; color:#333" onclick="closeModal()">CANCELAR</button>
+            <button class="btn-main btn-gold" onclick="submitSched()">GUARDAR</button>
+        </div>
     </div>
-    <form class="config-form">
-      <div class="form-group">
-        <label>Canal 1</label>
-        <input type="text" id="name-0" maxlength="19" placeholder="Nombre para Salida 1">
-      </div>
-      <div class="form-group">
-        <label>Canal 2</label>
-        <input type="text" id="name-1" maxlength="19" placeholder="Nombre para Salida 2">
-      </div>
-      <div class="form-group">
-        <label>Canal 3</label>
-        <input type="text" id="name-2" maxlength="19" placeholder="Nombre para Salida 3">
-      </div>
-      <div class="form-group">
-        <label>Canal 4</label>
-        <input type="text" id="name-3" maxlength="19" placeholder="Nombre para Salida 4">
-      </div>
-      <div class="config-actions">
-        <button type="button" class="config-actions button btn-save" onclick="saveConfig()">Guardar</button>
-        <button type="button" class="config-actions button btn-cancel" onclick="closeConfigModal()">Cancelar</button>
-      </div>
-    </form>
-  </div>
 </div>
+
+<div id="toast" class="toast">MENSAJE</div>
 
 <script>
-let relayNames = ['Salida 1', 'Salida 2', 'Salida 3', 'Salida 4'];
-let relayOn = [false,false,false,false];
-let autoMode = false;
-let pending = [false,false,false,false];
-let schedules = [];
+    let relayNames = ['SALIDA 1', 'SALIDA 2', 'SALIDA 3', 'SALIDA 4'];
+    let relayStates = [false, false, false, false];
+    let autoMode = false;
+    let schedules = [[], [], [], []]; // Agrupados por canal
+    let isPending = false;
 
-function openConfigModal(){
-  document.getElementById('configModal').classList.add('active');
-  for(let i = 0; i < 4; i++){
-    document.getElementById('name-' + i).value = relayNames[i];
-  }
-}
-
-function closeConfigModal(){
-  document.getElementById('configModal').classList.remove('active');
-}
-
-async function saveConfig(){
-  const names = [];
-  for(let i = 0; i < 4; i++){
-    names.push(document.getElementById('name-' + i).value);
-  }
-  
-  log('Guardando configuración...', 'log-cmd');
-  try {
-    const r = await fetch('/config', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({names: names})
-    });
-    const d = await r.json();
-    if(d.status === 'ok'){
-      for(let i = 0; i < 4; i++){
-        relayNames[i] = names[i] || ('Salida ' + (i+1));
-      }
-      renderUI();
-      closeConfigModal();
-      log('Configuración guardada exitosamente', 'log-ok');
-    } else {
-      log('Error al guardar: ' + d.message, 'log-err');
+    function showToast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('active'); setTimeout(()=>t.classList.remove('active'),2500); }
+    function setLoader(v, t="SINCRONIZANDO LORA") { document.getElementById('loader').style.display = v?'flex':'none'; document.querySelector('.loader-text').textContent=t; }
+    
+    function showSub(s) {
+        document.getElementById('configSection').style.display = (s==='config'?'block':'none');
+        document.getElementById('tabMain').classList.toggle('active', s==='main');
+        document.getElementById('tabSettings').classList.toggle('active', s==='config');
+        updateVisibility();
     }
-  } catch(e) {
-    log('Error de conexión', 'log-err');
-  }
-}
 
-window.addEventListener('keydown', function(e){
-  if(e.key === 'Escape') closeConfigModal();
-});
-
-function log(msg, type=''){
-  const c = document.getElementById('console');
-  const line = document.createElement('div');
-  line.className = 'log-line ' + type;
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  c.insertBefore(line, c.firstChild);
-}
-
-function renderUI(){
-  document.getElementById('mode-switch').checked = autoMode;
-  document.getElementById('mode-text').textContent = autoMode ? 'MODO AUTOMÁTICO' : 'MODO MANUAL';
-  document.getElementById('mode-desc').textContent = autoMode ? 'Operación basada en horarios' : 'Control directo de dispositivos';
-  
-  document.getElementById('manual-ui').style.display = autoMode ? 'none' : 'block';
-  document.getElementById('auto-ui').style.display = autoMode ? 'block' : 'none';
-
-  if(!autoMode){
-    const grid = document.getElementById('relayGrid');
-    grid.innerHTML = '';
-    for(let i=0; i<4; i++){
-      const on = relayOn[i];
-      grid.innerHTML += `
-        <div class="relay-card ${pending[i]?'pending':''}">
-          <span class="ch-tag">CANAL ${i+1}</span>
-          <span class="relay-icon ${on?'on':'off'}">${on?'⚡':'📴'}</span>
-          <span class="relay-name">${relayNames[i] || 'Salida '+(i+1)}</span>
-          <div class="relay-status ${on?'on':'off'}">${on?'✓ ENCENDIDO':'✗ APAGADO'}</div>
-          <label class="channel-switch manual ${on?'on':''}">
-            <input type="checkbox" ${on?'checked':''} onchange="sendRelay(${i+1},this.checked?1:0)" ${pending[i]?'disabled':''}>
-            <span class="switch-slider"></span>
-          </label>
-        </div>`;
-    }
-  } else {
-    const list = document.getElementById('schedList');
-    list.innerHTML = schedules.length ? '' : '<div style="text-align:center;padding:30px;color:#999">No hay horarios configurados</div>';
-    const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-    schedules.forEach(s => {
-      let dStr = '';
-      for(let i=0;i<7;i++) if(s.mask & (1<<i)) dStr += DAYS[i] + ' ';
-      list.innerHTML += `
-        <div class="sched-card">
-          <div>
-            <span class="sched-ch">${relayNames[s.ch-1]}</span>
-            <span class="sched-time">${String(s.onH).padStart(2,'0')}:${String(s.onM).padStart(2,'0')} - ${String(s.offH).padStart(2,'0')}:${String(s.offM).padStart(2,'0')}</span>
-            <span class="sched-days">${dStr}</span>
-          </div>
-          <span class="active-badge">ACTIVO</span>
-        </div>`;
-    });
-  }
-}
-
-async function sendRelay(ch, st){
-  pending[ch-1] = true;
-  renderUI();
-  log(`Enviando: R${ch}${st}`, 'log-cmd');
-  try {
-    const r = await fetch(`/cmd?q=R${ch}${st}`);
-    const d = await r.json();
-    log(`Respuesta: ${d.message}`);
-  } catch(e) {
-    pending[ch-1] = false;
-    renderUI();
-    log('Error de conexión','err');
-  }
-}
-
-async function sendAllOff(){
-  log('Enviando: ALLOFF', 'log-cmd');
-  try {
-    const r = await fetch('/cmd?q=ALLOFF');
-    const d = await r.json();
-    log(`Respuesta: ${d.message}`);
-    for(let i=0; i<4; i++) relayOn[i] = false;
-    renderUI();
-  } catch(e) {
-    log('Error al enviar ALLOFF','err');
-  }
-}
-
-async function sendCmdInput(){
-  const i = document.getElementById('cmdInput');
-  const v = i.value.trim().toUpperCase();
-  if(!v) return;
-  i.value = '';
-  log(`Enviando: ${v}`, 'log-cmd');
-  try {
-    const r = await fetch(`/cmd?q=${encodeURIComponent(v)}`);
-    const d = await r.json();
-    log(`Respuesta: ${d.message}`);
-  } catch(e) {
-    log('Error de conexión','err');
-  }
-}
-
-async function toggleMode(){
-  const target = document.getElementById('mode-switch').checked ? 'A' : 'M';
-  log(`Cambiando modo a: ${target==='A'?'Auto':'Manual'}`, 'log-cmd');
-  try {
-    const r = await fetch(`/cmd?q=${target}`);
-    const d = await r.json();
-    log(`Respuesta: ${d.message}`);
-    // No cambiamos autoMode aquí, esperamos al poll()
-  } catch(e) {
-    document.getElementById('mode-switch').checked = autoMode;
-    log('Error al cambiar modo','err');
-  }
-}
-
-async function poll(){
-  try {
-    const r = await fetch('/status');
-    const d = await r.json();
-    // En el gateway modular, necesitamos pedir el estado al esclavo via /cmd?q=S?
-    // o el gateway puede cachear la respuesta.
-    // Por ahora, simulamos la sincronización basada en el /cmd previo.
-  } catch(e) {}
-}
-
-// Para el gateway, necesitamos un poll que pida S? y GETSCHEDS
-async function syncStatus(){
-  try {
-    const r = await fetch('/cmd?q=S?');
-    const d = await r.json();
-    const msg = d.message; 
-    if(msg && msg.startsWith('S:')){
-      const parts = msg.split(':');
-      if(parts.length >= 3){
-        const states = parts[1];
-        const mode = parts[2];
-        
-        autoMode = (mode === 'A');
-        for(let i=0; i<4; i++){
-          relayOn[i] = (states[i] === '1');
-          pending[i] = false;
+    function updateVisibility() {
+        const isConfig = document.getElementById('configSection').style.display === 'block';
+        if(isConfig) {
+            document.getElementById('manualSection').classList.remove('show');
+            document.getElementById('autoSection').classList.remove('show');
+        } else {
+            document.getElementById('manualSection').classList.toggle('show', !autoMode);
+            document.getElementById('autoSection').classList.toggle('show', autoMode);
         }
-      }
+        document.getElementById('modeM').classList.toggle('active', !autoMode);
+        document.getElementById('modeA').classList.toggle('active', autoMode);
     }
 
-    if(autoMode) {
-      // Sync schedules solo en modo automático para no saturar
-      const r2 = await fetch('/cmd?q=GETSCHEDS');
-      const d2 = await r2.json();
-      if(d2.message){
-        const lines = d2.message.split('\\n');
-        let newSchedules = [];
-        for(let line of lines) {
-          if(line.startsWith("LSCHED:")) {
-            const p = line.split(':');
-            if(p.length >= 8) {
-              newSchedules.push({
-                ch: parseInt(p[1]),
-                idx: parseInt(p[2]),
-                mask: parseInt(p[3]),
-                onH: parseInt(p[4]),
-                onM: parseInt(p[5]),
-                offH: parseInt(p[6]),
-                offM: parseInt(p[7])
-              });
+    async function call(q) { try { const r=await fetch(`/cmd?q=${encodeURIComponent(q)}`); return await r.json(); } catch(e) { return {status:'error'}; } }
+
+    async function setMode(m) {
+        setLoader(true, "CAMBIANDO MODO...");
+        const d = await call(m);
+        if(d.status === 'ok') {
+            autoMode = (m === 'A');
+            await syncAll();
+            showToast("MODO ACTUALIZADO");
+        }
+        setLoader(false);
+    }
+
+    async function applyManual() {
+        if(autoMode) return;
+        setLoader(true, "TRANSMITIENDO...");
+        let cmd = "B:";
+        relayStates.forEach(s => cmd += (s?1:0));
+        await call(cmd);
+        await syncAll();
+        setLoader(false);
+        showToast("CAMBIOS APLICADOS");
+    }
+
+    async function emergencyStop() {
+        setLoader(true, "PARO DE EMERGENCIA...");
+        await call("ALLOFF");
+        await call("M");
+        autoMode = false;
+        await syncAll();
+        setLoader(false);
+        showToast("PARO DE EMERGENCIA");
+    }
+
+    async function syncAll() {
+        const d = await call("S?");
+        if(d.status === 'ok' && d.message.startsWith('S:')) {
+            const p = d.message.split(':');
+            const states = p[1];
+            autoMode = (p[2] === 'A');
+            for(let i=0; i<4; i++) relayStates[i] = (states[i]==='1');
+        }
+        if(autoMode) {
+            const d2 = await call("GETSCHEDS");
+            schedules = [[], [], [], []];
+            if(d2.message) {
+                d2.message.split('\\n').forEach(l => {
+                    if(l.startsWith("LSCHED:")) {
+                        const p = l.split(':');
+                        const ch = parseInt(p[1]) - 1;
+                        schedules[ch].push({ idx:p[2], mask:p[3], onH:p[4], onM:p[5], offH:p[6], offM:p[7] });
+                    }
+                });
             }
-          }
         }
-        schedules = newSchedules;
-      }
+        document.getElementById('syncLabel').textContent = new Date().toLocaleTimeString();
+        renderAll();
+        updateVisibility();
     }
-    renderUI();
-  } catch(e) {}
-}
 
-// Cargar nombres guardados
-async function loadNames(){
-  try{
-    const r = await fetch('/names');
-    const d = await r.json();
-    if(d.names && Array.isArray(d.names)){
-      relayNames = d.names;
+    function renderAll() {
+        // Manual
+        const mGrid = document.getElementById('manualGrid');
+        mGrid.innerHTML = '';
+        relayNames.forEach((n, i) => {
+            mGrid.innerHTML += `<div class="output-row">
+                <span class="output-name">${n}</span>
+                <label class="toggle"><input type="checkbox" ${relayStates[i]?'checked':''} onchange="relayStates[${i}]=this.checked">
+                <span class="slider"></span></label>
+            </div>`;
+        });
+
+        // Auto (ComboBox style)
+        const aBoxes = document.getElementById('autoBoxes');
+        aBoxes.innerHTML = '';
+        relayNames.forEach((n, i) => {
+            let options = schedules[i].length ? '' : '<option value="">SIN HORARIOS</option>';
+            schedules[i].forEach((s, idx) => {
+                options += `<option value="${idx}">${s.onH}:${s.onM} - ${s.offH}:${s.offM}</option>`;
+            });
+
+            aBoxes.innerHTML += `
+                <div class="auto-output-box">
+                    <span class="output-label">${n}</span>
+                    <select class="sched-select" id="sel-${i}">${options}</select>
+                    <div class="sched-actions">
+                        <button class="btn-small btn-edit" onclick="editSched(${i})">MODIFICAR</button>
+                        <button class="btn-small btn-delete" onclick="delSched(${i})">BORRAR</button>
+                    </div>
+                    <button class="btn-small btn-add" onclick="openAdd(${i})">+ AGREGAR</button>
+                </div>
+            `;
+        });
+
+        // Config
+        const nInputs = document.getElementById('nameInputs');
+        nInputs.innerHTML = '';
+        relayNames.forEach((n, i) => {
+            nInputs.innerHTML += `<div class="form-group"><label>SALIDA ${i+1}</label>
+                <input type="text" id="nn-${i}" value="${n}"></div>`;
+        });
     }
-  }catch(e){}
-  setInterval(syncStatus, 4000);
-  syncStatus();
-  renderUI();
-  log('Gateway listo. Monitoreando esclavo...');
-}
 
-loadNames();
+    function openAdd(ch) {
+        document.getElementById('editCh').value = ch + 1;
+        document.getElementById('editIdx').value = 0; // Se usará 0 o un slot libre en el esclavo
+        document.getElementById('modalTitle').textContent = "AGREGAR A " + relayNames[ch];
+        document.getElementById('schedModal').style.display = 'flex';
+    }
+
+    function editSched(ch) {
+        const sel = document.getElementById('sel-' + ch);
+        if(!sel.value || schedules[ch].length === 0) return;
+        const s = schedules[ch][sel.value];
+        document.getElementById('editCh').value = ch + 1;
+        document.getElementById('editIdx').value = s.idx;
+        document.getElementById('sOn').value = `${String(s.onH).padStart(2,'0')}:${String(s.onM).padStart(2,'0')}`;
+        document.getElementById('sOff').value = `${String(s.offH).padStart(2,'0')}:${String(s.offM).padStart(2,'0')}`;
+        document.getElementById('modalTitle').textContent = "EDITAR EN " + relayNames[ch];
+        document.getElementById('schedModal').style.display = 'flex';
+    }
+
+    async function delSched(ch) {
+        const sel = document.getElementById('sel-' + ch);
+        if(!sel.value || schedules[ch].length === 0) return;
+        const s = schedules[ch][sel.value];
+        setLoader(true, "BORRANDO...");
+        await call(`DIS_SCHED:${ch+1}:${s.idx}`);
+        await syncAll();
+        setLoader(false);
+        showToast("HORARIO ELIMINADO");
+    }
+
+    async function submitSched() {
+        const ch = document.getElementById('editCh').value;
+        const idx = document.getElementById('editIdx').value;
+        const on = document.getElementById('sOn').value.split(':');
+        const off = document.getElementById('sOff').value.split(':');
+        let mask = 0;
+        document.querySelectorAll('#dayPicker input:checked').forEach(i => mask |= (1 << parseInt(i.value)));
+        
+        closeModal();
+        setLoader(true, "GUARDANDO...");
+        await call(`SC:${ch}:${idx}:${mask}:${on[0]}:${on[1]}:${off[0]}:${off[1]}`);
+        await syncAll();
+        setLoader(false);
+        showToast("PROGRAMACIÓN GUARDADA");
+    }
+
+    function closeModal() { document.getElementById('schedModal').style.display = 'none'; }
+
+    async function saveSettings() {
+        const names = [];
+        for(let i=0; i<4; i++) names.push(document.getElementById('nn-' + i).value.toUpperCase());
+        setLoader(true, "GUARDANDO...");
+        const r = await fetch('/config', { method:'POST', body:JSON.stringify({names:names}) });
+        if(r.ok) { relayNames = names; showToast("AJUSTES GUARDADOS"); renderAll(); }
+        setLoader(false);
+    }
+
+    async function init() {
+        try {
+            const r = await fetch('/names');
+            const d = await r.json();
+            if(d.names) relayNames = d.names;
+        } catch(e) {}
+        await syncAll();
+        setInterval(syncAll, 30000);
+    }
+
+    init();
 </script>
 </body>
 </html>
@@ -961,13 +397,12 @@ void setupWebServer() {
     q.trim();
     q.toUpperCase();
 
-    // El Gateway simplemente pasa el comando al Slave
     if (sendLoRaToSlave(q.c_str())) {
       lastLoRaResponse = "";
       unsigned long start = millis();
       String accumulated = "";
       bool isMulti = q.startsWith("GETSCHEDS");
-      unsigned long timeout = isMulti ? 3000 : 2000;
+      unsigned long timeout = isMulti ? 5000 : 2500;
       
       while (millis() - start < timeout) {
         receiveLoRa();
@@ -1007,29 +442,22 @@ void setupWebServer() {
     }
     
     String body = server.arg("plain");
-    // Parsear JSON simple: {"names":["name1","name2",...]}
     int start = body.indexOf("[");
     int end = body.lastIndexOf("]");
     
     if(start != -1 && end != -1) {
-      String names = body.substring(start + 1, end);
+      String ns = body.substring(start + 1, end);
       int idx = 0;
       int nameIdx = 0;
-      
-      while(nameIdx < NUM_RELAYS && idx < names.length()) {
-        int quote1 = names.indexOf('"', idx);
-        if(quote1 == -1) break;
-        int quote2 = names.indexOf('"', quote1 + 1);
-        if(quote2 == -1) break;
-        
-        String name = names.substring(quote1 + 1, quote2);
-        if(name.length() > 0) {
-          setRelayName(nameIdx, name);
-        }
-        nameIdx++;
-        idx = quote2 + 1;
+      while(nameIdx < NUM_RELAYS && idx < ns.length()) {
+        int q1 = ns.indexOf('"', idx);
+        if(q1 == -1) break;
+        int q2 = ns.indexOf('"', q1 + 1);
+        if(q2 == -1) break;
+        String name = ns.substring(q1 + 1, q2);
+        if(name.length() > 0) setRelayName(nameIdx, name);
+        nameIdx++; idx = q2 + 1;
       }
-      
       saveRelayNames();
       server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Configuración guardada\"}");
     } else {

@@ -505,17 +505,15 @@ void processCommand(String cmd) {
     if (cmd == "M") { autoMode = false; saveMode(); reply("ACK:M"); return; }
   }
 
-  if (cmd.length() == 3 && cmd[0] == 'R') {
-    int ch = cmd[1] - '1';
-    int st = cmd[2] - '0';
-    if (ch >= 0 && ch < 4 && (st == 0 || st == 1)) {
-      if (autoMode) { reply("ERR:AUTO"); return; }
-      digitalWrite(RELAY_PINS[ch], st ? HIGH : LOW);
-      relayStatus[ch] = (st == 1);
-      snprintf(replBuf, sizeof(replBuf), "ACK:R%d%d", ch+1, st);
-      reply(replBuf);
-      return;
+  if (cmd.startsWith("B:") && cmd.length() == 6) {
+    if (autoMode) { reply("ERR:AUTO"); return; }
+    for (int i = 0; i < 4; i++) {
+      int st = cmd[i + 2] - '0';
+      digitalWrite(RELAY_PINS[i], st ? HIGH : LOW);
+      relayStatus[i] = (st == 1);
     }
+    reply("ACK:B");
+    return;
   }
 
   if (cmd == "ALLOFF") {

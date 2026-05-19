@@ -46,7 +46,7 @@ struct Schedule {
   uint8_t offMinute;
   uint8_t daysMask; // Bits: 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
   bool enabled;
-};
+} __attribute__((packed));
 
 // Variables Globales
 extern Schedule channelSchedules[4][MAX_SCHEDS];

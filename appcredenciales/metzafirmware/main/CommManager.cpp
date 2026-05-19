@@ -538,7 +538,7 @@ void processCommand(String cmd) {
   }
   if (cmd == "GM" || cmd == "M") { autoMode = false; saveMode(); reply("ACK:M"); return; }
 
-  if (cmd == "S?") {
+  if (cmd == "S?" || cmd == "STATUS") {
     snprintf(replBuf, sizeof(replBuf), "S:%d%d%d%d:%c", 
              relayStatus[0], relayStatus[1], relayStatus[2], relayStatus[3], 
              autoMode ? 'A' : 'M');
@@ -571,13 +571,7 @@ void processCommand(String cmd) {
     return; 
   }
   if (cmd == "GLOBAL_MANUAL") { autoMode = false; saveMode(); reply("MODE:GLOBAL:MAN"); return; }
-  if (cmd == "STATUS") {
-    String s = "S:";
-    for(int i=0; i<4; i++) s += (relayStatus[i] ? "1" : "0");
-    s += (autoMode ? ":A" : ":M");
-    reply(s.c_str());
-    return;
-  }
+
 
   if (cmd == "GETSCHEDS") {
     char sb[64];
@@ -590,7 +584,7 @@ void processCommand(String cmd) {
                    channelSchedules[i][j].onHour, channelSchedules[i][j].onMinute,
                    channelSchedules[i][j].offHour, channelSchedules[i][j].offMinute);
           reply(sb);
-          if (!bluetoothEnabled) delay(150); // Dar tiempo a LoRa
+          delay(50); // Pequeño delay para estabilidad (BT y LoRa)
         }
       }
     }
@@ -610,8 +604,17 @@ void processCommand(String cmd) {
       // Pero para compatibilidad asumiremos que canal viene 1-4, igual que SETSCHED.
       int ch = p[1] - 1, idx = p[2];
       if (ch >= 0 && ch < 4 && idx >= 0 && idx < MAX_SCHEDS) {
-        channelSchedules[ch][idx] = {(uint8_t)p[4], (uint8_t)p[5], (uint8_t)p[6], (uint8_t)p[7], (uint8_t)p[3], true};
-        saveSchedules(); reply("SCHED OK");
+        channelSchedules[ch][idx].onHour = (uint8_t)p[4];
+        channelSchedules[ch][idx].onMinute = (uint8_t)p[5];
+        channelSchedules[ch][idx].offHour = (uint8_t)p[6];
+        channelSchedules[ch][idx].offMinute = (uint8_t)p[7];
+        channelSchedules[ch][idx].daysMask = (uint8_t)p[3];
+        channelSchedules[ch][idx].enabled = true;
+        
+        Serial.printf("SAVING SCHED: CH=%d, IDX=%d, MASK=%d, ON=%02d:%02d, OFF=%02d:%02d\n", 
+                      ch+1, idx, p[3], p[4], p[5], p[6], p[7]);
+        
+        saveSchedules(); reply("SCHED_SAVED:OK");
       }
     }
     return;
@@ -624,8 +627,22 @@ void processCommand(String cmd) {
       int idx = cmd.substring(s+1).toInt();
       if (ch >= 0 && ch < 4 && idx >= 0 && idx < MAX_SCHEDS) {
         channelSchedules[ch][idx].enabled = false;
-        saveSchedules(); reply("DIS OK");
+        saveSchedules(); reply("SCHED_DISABLED:OK");
       }
+    }
+    return;
+  }
+
+  if (cmd.startsWith("SETTIME:")) {
+    int p[6]; int count = 0, pos = 8; // "SETTIME:" has 8 chars
+    while (pos != -1 && count < 6) {
+      int next = cmd.indexOf(':', pos);
+      p[count++] = (next == -1) ? cmd.substring(pos).toInt() : cmd.substring(pos, next).toInt();
+      pos = (next == -1) ? -1 : next + 1;
+    }
+    if (count == 6) {
+      rtc.adjust(DateTime(p[5], p[4], p[3], p[0], p[1], p[2]));
+      reply("TIME_SYNC_OK");
     }
     return;
   }
@@ -634,7 +651,7 @@ void processCommand(String cmd) {
     int ch = cmd.substring(cmd.indexOf(':') + 1).toInt() - 1;
     if (ch >= 0 && ch < 4) {
       for (int j = 0; j < MAX_SCHEDS; j++) channelSchedules[ch][j].enabled = false;
-      saveSchedules(); reply("CLEAR OK");
+      saveSchedules(); reply("SCHEDS_CLEARED:OK");
     }
     return;
   }

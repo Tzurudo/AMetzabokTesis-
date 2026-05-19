@@ -100,6 +100,9 @@ class _AutomationPageState extends State<AutomationPage> {
           final onTime = TimeOfDay(hour: onH, minute: onM);
           final offTime = TimeOfDay(hour: offH, minute: offM);
 
+          // Evitar duplicados si la línea llega dos veces por múltiples listeners
+          _tempSyncSchedules[ch - 1].removeWhere((s) => s.index == idx);
+          
           _tempSyncSchedules[ch - 1].add(
             SchedInterval(
               index: idx,

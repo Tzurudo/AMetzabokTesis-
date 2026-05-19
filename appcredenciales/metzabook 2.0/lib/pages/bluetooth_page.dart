@@ -32,7 +32,14 @@ class _BluetoothPageState extends State<BluetoothPage> {
     _btManager.relayStates.addListener(_rebuild);
     _btManager.isGlobalAuto.addListener(_rebuild);
     _btManager.channelNames.addListener(_onNamesChanged);
+    
     _initBluetooth();
+
+    // Si ya está conectado al entrar a la página, debemos suscribirnos y pedir estado
+    if (_btManager.isConnected.value) {
+      _subscribeToData();
+      _btManager.write("STATUS");
+    }
   }
 
   void _rebuild() { if (mounted) setState(() {}); }

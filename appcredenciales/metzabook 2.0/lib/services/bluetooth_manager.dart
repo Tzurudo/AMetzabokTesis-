@@ -145,7 +145,27 @@ class BluetoothManager {
   void _processIncomingLine(String line) {
     debugPrint("BT ← $line");
 
-    if (line.startsWith('CH') && line.contains('=')) {
+    // Handle STATUS response: S:1111:A (Relays: 1=ON, 0=OFF, Mode: A=Auto, M=Manual)
+    if (line.startsWith('S:') && line.contains(':')) {
+      final parts = line.split(':');
+      if (parts.length >= 3) {
+        final relayBits = parts[1];
+        final mode = parts[2];
+
+        // Update relays
+        final updated = Map<int, bool>.from(relayStates.value);
+        for (int i = 0; i < relayBits.length && i < 4; i++) {
+          updated[i + 1] = relayBits[i] == '1';
+        }
+        relayStates.value = updated;
+
+        // Update mode
+        final isAuto = mode == 'A';
+        if (isGlobalAuto.value != isAuto) isGlobalAuto.value = isAuto;
+      }
+    } 
+    // Handle specific relay updates: CH1=ON
+    else if (line.startsWith('CH') && line.contains('=')) {
       final parts = line.split('=');
       final chMatch = RegExp(r'CH(\d+)').firstMatch(parts[0]);
       if (chMatch != null) {
@@ -157,8 +177,10 @@ class BluetoothManager {
           relayStates.value = updated;
         }
       }
-    } else if (line.startsWith('MODE:GLOBAL:')) {
-      final isAuto = line.contains('AUTO');
+    } 
+    // Handle mode changes: MODE:GLOBAL:AUTO or ACK:A
+    else if (line.startsWith('MODE:GLOBAL:') || line.startsWith('ACK:')) {
+      final isAuto = line.contains('AUTO') || line.contains(':A');
       if (isGlobalAuto.value != isAuto) isGlobalAuto.value = isAuto;
     }
   }
